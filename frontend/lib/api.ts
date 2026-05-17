@@ -333,6 +333,10 @@ export type StartScanRequest = {
   explicit_authorization?: boolean;
   confirm_high_noise?: boolean;
   template_ids?: string[];
+  // Filesystem path to a wordlist (used by ffuf / gobuster / dirsearch).
+  wordlist?: string | null;
+  // Cloud provider for prowler / scoutsuite (e.g. "aws", "azure", "gcp").
+  provider?: string | null;
 };
 
 export async function startScan(payload: StartScanRequest): Promise<ScannerRun[]> {

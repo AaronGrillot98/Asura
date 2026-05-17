@@ -69,10 +69,32 @@ def validate_target(target: str) -> str | None:
     return None
 
 
-def build_command(scanner: str, target: str, mode: str) -> list[str]:
+def build_command(
+    scanner: str,
+    target: str,
+    mode: str,
+    substitutions: dict[str, str] | None = None,
+) -> list[str]:
+    """Build a scanner's argv with the registry's allowed placeholders filled in.
+
+    `{{target}}` is always substituted with the caller's target. The optional
+    `substitutions` dict covers the remaining placeholders documented in the
+    contract: wordlist, database, provider, rules, model_type, resolver_list.
+
+    Placeholders without a substitution stay verbatim (the scanner will then
+    fail with a clear "file not found" or similar — better than silently
+    swallowing the issue).
+    """
     definition = SCANNERS[scanner]
     command = definition.commands[mode]
-    return [part.replace("{{target}}", target) for part in command]
+    subs = dict(substitutions or {})
+    subs["target"] = target
+    out: list[str] = []
+    for part in command:
+        for key, value in subs.items():
+            part = part.replace(f"{{{{{key}}}}}", value)
+        out.append(part)
+    return out
 
 
 # The shape of an in-container mount: (host_path, container_path).
@@ -470,6 +492,7 @@ def run_scanner(
     force_docker: Optional[bool] = None,
     extra_args: Optional[list[str]] = None,
     extra_mounts: Optional[list[ExtraMount]] = None,
+    substitutions: Optional[dict[str, str]] = None,
 ) -> ScannerRun:
     """Execute a registered scanner.
 
@@ -515,9 +538,23 @@ def run_scanner(
     prefer_docker = prefer_docker_enabled() if force_docker is None else force_docker
     tool, docker_path = _docker_available_for(scanner)
     local_path = _local_binary_path(scanner)
-    inner_argv = build_command(scanner, target, mode)
+    inner_argv = build_command(scanner, target, mode, substitutions=substitutions)
     if extra_args:
         inner_argv = inner_argv + list(extra_args)
+    # If any placeholder slipped through (no substitution supplied), refuse
+    # to spawn — surfaces a clear error rather than running with literal
+    # `{{wordlist}}` and confusing the user.
+    unresolved = [a for a in inner_argv if "{{" in a and "}}" in a]
+    if unresolved:
+        return _new_run(
+            project_id=project_id, scanner=scanner, target=target, mode=mode,
+            status="failed",
+            message=(
+                f"{scanner}: command template has unresolved placeholder(s) "
+                f"{unresolved}. Provide them on the scan request "
+                "(wordlist, provider, etc.) and try again."
+            ),
+        )
 
     # Path selection.
     if prefer_docker and docker_path and tool is not None:

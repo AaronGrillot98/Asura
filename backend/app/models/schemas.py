@@ -463,6 +463,11 @@ class ScanRequest(BaseModel):
     # IDs of NucleiTemplate records uploaded via /api/templates. Only applied
     # to scanners that natively accept template files (currently: nuclei).
     template_ids: list[str] = Field(default_factory=list)
+    # Filesystem path to a wordlist for fuzzers (ffuf, gobuster, dirsearch).
+    # Substituted into command templates that contain `{{wordlist}}`.
+    wordlist: str | None = None
+    # Cloud provider for prowler / scoutsuite (e.g. "aws", "azure", "gcp").
+    provider: str | None = None
 
 
 class FindingStatusPatch(BaseModel):

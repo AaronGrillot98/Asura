@@ -1,10 +1,18 @@
 from app.services.runner import build_command, run_scanner, validate_target
-from app.services.scanner_registry import CORE_SCANNER_IDS, SCANNERS, scanner_allowed
+from app.services.scanner_registry import (
+    CORE_SCANNER_IDS,
+    CORE_SCANNERS,
+    SCANNERS,
+    scanner_allowed,
+)
 from app.services.tool_registry import load_arsenal
 
 
 def test_first_ten_core_scanners_are_locked() -> None:
-    assert tuple(SCANNERS.keys()) == CORE_SCANNER_IDS
+    """`CORE_SCANNERS` is the contractual locked-10 view; SCANNERS is the
+    wider runtime dispatch surface that grew as tools were promoted."""
+    assert tuple(CORE_SCANNERS.keys()) == CORE_SCANNER_IDS
+    assert set(CORE_SCANNER_IDS).issubset(set(SCANNERS.keys()))
 
 
 def test_core_scanners_are_in_arsenal_as_core_runners() -> None:
@@ -17,7 +25,7 @@ def test_core_scanners_are_in_arsenal_as_core_runners() -> None:
 
 
 def test_core_scanners_have_parser_and_output_metadata() -> None:
-    for scanner in SCANNERS.values():
+    for scanner in CORE_SCANNERS.values():
         assert scanner.parser
         assert scanner.output_format in {"json", "jsonl", "xml"}
 

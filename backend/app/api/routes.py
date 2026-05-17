@@ -53,7 +53,7 @@ from app.services.demo_store import RISK_TREND
 from app.services.pentest_brain import PentestBrain
 from app.services.reporting import build_report, render_markdown
 from app.services.runner import run_scanner
-from app.services.scanner_registry import SCANNERS
+from app.services.scanner_registry import CORE_SCANNERS, SCANNERS
 from app.services.tool_registry import load_contract_report, query_arsenal
 
 router = APIRouter()
@@ -86,7 +86,7 @@ def scanners() -> list[dict[str, object]]:
             "output_format": scanner.output_format,
             "parser": scanner.parser,
         }
-        for scanner in SCANNERS.values()
+        for scanner in CORE_SCANNERS.values()
     ]
 
 
@@ -845,6 +845,14 @@ def start_scan(request: ScanRequest) -> list[ScannerRun]:
             detail=f"Unknown template id(s): {', '.join(missing_template_ids)}",
         )
 
+    # Substitutions for command-template placeholders. The contract validator
+    # already pins these to a whitelist; runner.build_command applies them.
+    substitutions: dict[str, str] = {}
+    if request.wordlist:
+        substitutions["wordlist"] = request.wordlist
+    if request.provider:
+        substitutions["provider"] = request.provider
+
     runs: list[ScannerRun] = []
     for scanner in request.scanners:
         is_nuclei = scanner == "nuclei"
@@ -857,6 +865,7 @@ def start_scan(request: ScanRequest) -> list[ScannerRun]:
             repos=repos,
             extra_args=nuclei_args if is_nuclei else None,
             extra_mounts=nuclei_mounts if is_nuclei else None,
+            substitutions=substitutions or None,
         )
         repos.runs.add(run)
         runs.append(run)

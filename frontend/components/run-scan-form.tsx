@@ -40,7 +40,19 @@ const CORE_SCANNERS: { id: string; label: string; defaultMode: "passive" | "acti
   { id: "subfinder", label: "subfinder (subdomains)", defaultMode: "passive" },
   { id: "httpx", label: "httpx (HTTP probe)", defaultMode: "active" },
   { id: "naabu", label: "naabu (port scan)", defaultMode: "active" },
+  // Fuzzers (slice 10) — require a wordlist
+  { id: "ffuf", label: "ffuf (web fuzzing)", defaultMode: "active" },
+  { id: "gobuster", label: "Gobuster (dir/dns)", defaultMode: "active" },
+  { id: "dirsearch", label: "Dirsearch (web)", defaultMode: "active" },
+  // K8s / cloud (slice 10)
+  { id: "kube-bench", label: "kube-bench (CIS K8s)", defaultMode: "passive" },
+  { id: "kubescape", label: "kubescape (K8s posture)", defaultMode: "passive" },
+  { id: "kube-score", label: "kube-score (manifest lint)", defaultMode: "passive" },
+  { id: "prowler", label: "prowler (cloud audit)", defaultMode: "passive" },
 ];
+
+const FUZZER_IDS = new Set(["ffuf", "gobuster", "dirsearch"]);
+const PROVIDER_IDS = new Set(["prowler"]);
 
 type Status =
   | { kind: "idle" }
@@ -70,9 +82,13 @@ export function RunScanForm({
   const [runInBackground, setRunInBackground] = useState(false);
   const [templates, setTemplates] = useState<NucleiTemplate[]>([]);
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
+  const [wordlist, setWordlist] = useState("");
+  const [provider, setProvider] = useState("aws");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const nucleiSelected = scanners.includes("nuclei");
+  const fuzzerSelected = scanners.some((s) => FUZZER_IDS.has(s));
+  const providerSelected = scanners.some((s) => PROVIDER_IDS.has(s));
 
   // Load templates lazily once the user opens the form AND has nuclei selected.
   useEffect(() => {
@@ -111,6 +127,13 @@ export function RunScanForm({
       setStatus({ kind: "error", message: "Active and lab scans require explicit authorization." });
       return;
     }
+    if (fuzzerSelected && !wordlist.trim()) {
+      setStatus({
+        kind: "error",
+        message: "Selected fuzzers (ffuf/gobuster/dirsearch) require a wordlist path.",
+      });
+      return;
+    }
     const payload: StartScanRequest = {
       project_id: activeProjectId,
       target: target.trim(),
@@ -120,6 +143,8 @@ export function RunScanForm({
       explicit_authorization: explicitAuthorization,
       confirm_high_noise: confirmHighNoise,
       template_ids: nucleiSelected && selectedTemplateIds.length > 0 ? selectedTemplateIds : undefined,
+      wordlist: fuzzerSelected ? wordlist.trim() || undefined : undefined,
+      provider: providerSelected ? provider.trim() || undefined : undefined,
     };
     setStatus({ kind: "running", message: `Running ${scanners.length} scanner(s)…` });
     try {
@@ -230,6 +255,48 @@ export function RunScanForm({
             Run in background — submit a job and poll progress on /jobs (recommended for long scans).
           </label>
         </div>
+
+        {fuzzerSelected ? (
+          <fieldset style={{ border: "1px solid var(--border-1)", borderRadius: 8, padding: 10 }}>
+            <legend style={{ color: "var(--text-3)", fontSize: 12, padding: "0 6px" }}>
+              Wordlist path (required for ffuf / gobuster / dirsearch)
+            </legend>
+            <input
+              value={wordlist}
+              onChange={(e) => setWordlist(e.target.value)}
+              placeholder="/usr/share/seclists/Discovery/Web-Content/common.txt"
+              style={{ fontSize: 13 }}
+            />
+            <small style={{ color: "var(--text-3)", display: "block", marginTop: 6 }}>
+              Filesystem path on the backend host. Asura will substitute this for the
+              <code className="inlineCode" style={{ marginLeft: 4, marginRight: 4 }}>{`{{wordlist}}`}</code>
+              placeholder in each fuzzer command template.
+            </small>
+          </fieldset>
+        ) : null}
+
+        {providerSelected ? (
+          <fieldset style={{ border: "1px solid var(--border-1)", borderRadius: 8, padding: 10 }}>
+            <legend style={{ color: "var(--text-3)", fontSize: 12, padding: "0 6px" }}>
+              Cloud provider (required for prowler)
+            </legend>
+            <select
+              value={provider}
+              onChange={(e) => setProvider(e.target.value)}
+              style={{ fontSize: 13, height: 36 }}
+            >
+              <option value="aws">AWS</option>
+              <option value="azure">Azure</option>
+              <option value="gcp">GCP</option>
+              <option value="kubernetes">Kubernetes</option>
+              <option value="github">GitHub</option>
+            </select>
+            <small style={{ color: "var(--text-3)", display: "block", marginTop: 6 }}>
+              Prowler requires valid read-only cloud credentials in the backend
+              environment before this will produce findings.
+            </small>
+          </fieldset>
+        ) : null}
 
         {nucleiSelected ? (
           <fieldset style={{ border: "1px solid var(--border-1)", borderRadius: 8, padding: 10 }}>

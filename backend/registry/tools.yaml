@@ -784,21 +784,25 @@ tools:
     execution: optional_pack
     modes: [active, lab]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: MIT
     official_url: https://github.com/ffuf/ffuf
     executable: ffuf
-    install_hint: "Install from FFUF releases."
-    input_types: [url, wordlist]
-    output_formats: [json, ejson, csv]
+    install_hint: "Install from FFUF releases or `go install github.com/ffuf/ffuf/v2@latest`."
+    input_types: [url]
+    output_formats: [json]
     parser: ffuf_json
     safe_default: false
     requires_authorized_scope: true
     docker_available: true
     supported_os: [linux, macos, windows]
+    docker_image: ffuf/ffuf:latest
+    target_kind: url
     commands:
       - mode: active
-        command: "ffuf -u {{target}}/FUZZ -w {{wordlist}} -of json"
+        command: "ffuf -u {{target}}/FUZZ -w {{wordlist}} -of json -o /dev/stdout -s"
+      - mode: lab
+        command: "ffuf -u {{target}}/FUZZ -w {{wordlist}} -of json -o /dev/stdout -s"
     recommended_use: "Discover hidden paths and virtual hosts with scoped wordlists."
     risk_warning: "Can be noisy; Asura should enforce rate and scope controls."
 
@@ -1138,21 +1142,23 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: Apache-2.0
     official_url: https://github.com/prowler-cloud/prowler
     executable: prowler
-    install_hint: "Install with pipx and configure cloud credentials read-only."
-    input_types: [aws_account, azure_tenant, gcp_project, kubernetes]
-    output_formats: [json, csv, html]
+    install_hint: "Install with `pipx install prowler` or `toniblyx/prowler:latest`. Read-only cloud credentials required before running."
+    input_types: [cloud_account, provider]
+    output_formats: [json]
     parser: prowler_json
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
     supported_os: [linux, macos, windows]
+    docker_image: toniblyx/prowler:latest
+    target_kind: host
     commands:
       - mode: passive
-        command: "prowler {{provider}} --output-formats json"
+        command: "prowler {{provider}} --output-formats json -F asura"
     recommended_use: "Cloud security posture checks with read-only credentials."
     risk_warning: "Credential scoping and audit logging are mandatory."
 
@@ -1290,18 +1296,23 @@ tools:
     execution: optional_pack
     modes: [active]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: Apache-2.0
     official_url: https://github.com/OJ/gobuster
-    executable: null
+    executable: gobuster
     input_types: [url, domain]
-    output_formats: [text, json]
-    parser: null
+    output_formats: [text]
+    parser: gobuster_text
     safe_default: false
     requires_authorized_scope: true
     docker_available: true
     supported_os: [linux, macos, windows]
-    commands: []
+    install_hint: "Install with `go install github.com/OJ/gobuster/v3@latest` or use `ghcr.io/oj/gobuster:latest`."
+    docker_image: ghcr.io/oj/gobuster:latest
+    target_kind: url
+    commands:
+      - mode: active
+        command: "gobuster dir -u {{target}} -w {{wordlist}} --no-progress -q -t 10"
     recommended_use: "Directory, DNS, and vhost brute-forcing for authorized targets."
     risk_warning: "High-noise scanner; confirm before running."
     risk_level: medium
@@ -1314,18 +1325,23 @@ tools:
     execution: optional_pack
     modes: [active]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: GPL-2.0
     official_url: https://github.com/maurosoria/dirsearch
-    executable: null
+    executable: dirsearch
     input_types: [url]
-    output_formats: [json, text]
-    parser: null
+    output_formats: [text]
+    parser: dirsearch_text
     safe_default: false
     requires_authorized_scope: true
     docker_available: true
     supported_os: [linux, macos, windows]
-    commands: []
+    install_hint: "Install with `pipx install dirsearch` or use `maurosoria/dirsearch:latest`."
+    docker_image: maurosoria/dirsearch:latest
+    target_kind: url
+    commands:
+      - mode: active
+        command: "dirsearch -u {{target}} -w {{wordlist}} --format=plain --quiet"
     recommended_use: "Web path discovery with extension-aware wordlists."
     risk_warning: "High-noise scanner; confirm before running."
     risk_level: medium
@@ -2028,18 +2044,23 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: MIT
     official_url: https://kube-score.com/
-    executable: null
-    input_types: [kubernetes]
-    output_formats: [json, text]
-    parser: null
+    executable: kube-score
+    input_types: [kubernetes, filesystem]
+    output_formats: [json]
+    parser: kube_score_json
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
     supported_os: [linux, macos, windows]
-    commands: []
+    install_hint: "Install with `go install github.com/zegl/kube-score/cmd/kube-score@latest` or `zegl/kube-score:latest`."
+    docker_image: zegl/kube-score:latest
+    target_kind: filesystem
+    commands:
+      - mode: passive
+        command: "kube-score score {{target}} -o json"
     recommended_use: "Lint Kubernetes manifests for security best practices."
     risk_warning: null
     risk_level: low
@@ -2052,18 +2073,23 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: Apache-2.0
     official_url: https://github.com/aquasecurity/kube-bench
-    executable: null
-    input_types: [cluster]
+    executable: kube-bench
+    input_types: [cluster, host]
     output_formats: [json]
-    parser: null
+    parser: kube_bench_json
     safe_default: true
     requires_authorized_scope: true
     docker_available: true
     supported_os: [linux]
-    commands: []
+    install_hint: "Install kube-bench (Aqua Security) or use `aquasec/kube-bench:latest`."
+    docker_image: aquasec/kube-bench:latest
+    target_kind: host
+    commands:
+      - mode: passive
+        command: "kube-bench run --json --targets {{target}}"
     recommended_use: "Run CIS Kubernetes Benchmark checks against an authorized cluster."
     risk_warning: "Requires cluster access; treat output as sensitive."
     risk_level: medium
@@ -2076,18 +2102,23 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: Apache-2.0
     official_url: https://kubescape.io/
-    executable: null
+    executable: kubescape
     input_types: [cluster, kubernetes]
-    output_formats: [json, sarif]
-    parser: null
+    output_formats: [json]
+    parser: kubescape_json
     safe_default: true
     requires_authorized_scope: true
     docker_available: true
     supported_os: [linux, macos, windows]
-    commands: []
+    install_hint: "Install kubescape via the official installer or use `kubescape/kubescape:latest`."
+    docker_image: kubescape/kubescape:latest
+    target_kind: host
+    commands:
+      - mode: passive
+        command: "kubescape scan framework nsa {{target}} --format json --output /dev/stdout"
     recommended_use: "K8s posture scanning aligned with NSA, MITRE, and ARMO frameworks."
     risk_warning: null
     risk_level: medium

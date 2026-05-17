@@ -37,18 +37,20 @@ def test_planned_catalog_additions_have_no_runnable_commands() -> None:
     # entries may carry placeholder commands validated by the registry
     # contract; only this batch is checked here.
     arsenal = load_arsenal()
-    # NOTE: trufflehog was originally added as a catalog-only entry and has
-    # since been promoted to a first-class runner (slice 2). Anything still
-    # in this set is intentionally not yet runnable from the UI.
+    # Several entries have graduated from catalog-only to first-class runners:
+    #   - trufflehog (slice 2)
+    #   - ffuf, gobuster, dirsearch, kube-bench, kubescape, kube-score, prowler
+    #     (slice 10: fuzzers + K8s/cloud)
+    # Anything still in this set is intentionally not yet runnable.
     catalog_only_additions = {
-        "feroxbuster", "gobuster", "dirsearch", "nikto", "wapiti", "arjun",
+        "feroxbuster", "nikto", "wapiti", "arjun",
         "kxss", "linkfinder", "secretfinder", "retirejs", "corsy", "crlfuzz",
         "openredirex", "kiterunner", "jwt-tool", "graphql-voyager", "inql",
         "graphql-cop", "restler", "postman-importer", "openapi-parser",
         "detect-secrets", "whispers", "detect-secrets-baseline",
         "kics", "terrascan", "tfsec-compatible", "cloudsplaining", "scoutsuite",
-        "steampipe", "parliament", "cfn-nag", "kube-score", "kube-bench",
-        "kubescape", "polaris", "docker-bench-security", "falco",
+        "steampipe", "parliament", "cfn-nag", "polaris",
+        "docker-bench-security", "falco",
         "suricata-rules", "zeek", "osquery", "chainsaw", "hayabusa",
         "velociraptor", "volatility3", "plaso", "timesketch",
     }
