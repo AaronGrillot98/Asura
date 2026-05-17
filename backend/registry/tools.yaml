@@ -1,0 +1,2344 @@
+blocked_policy:
+  - "No RATs, keyloggers, stealers, botnet tooling, credential harvesters, or persistence kits."
+  - "Active and lab tools require explicit authorized scope before execution."
+  - "Reference-only tools may be documented or linked, but Asura will not execute them."
+  - "Exploit validation must be non-destructive by default and preserve evidence."
+
+tools:
+  - id: nmap
+    name: Nmap
+    pack: Recon Pack
+    category: network recon
+    execution: core_runner
+    modes: [active, lab]
+    install_status: bundled
+    integration_status: runner
+    license: NPSL
+    official_url: https://nmap.org/
+    executable: nmap
+    install_hint: "Install with the platform package manager or use the backend Docker image."
+    input_types: [host, cidr]
+    output_formats: [xml, text]
+    parser: nmap_xml
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: active
+        command: "nmap -sV --version-light -oX - {{target}}"
+      - mode: lab
+        command: "nmap -sV --version-light -oX - {{target}}"
+    recommended_use: "Service discovery and version detection for explicitly scoped targets."
+    risk_warning: "Network probing can be noisy and should not run in passive mode."
+
+  - id: nuclei
+    name: Nuclei
+    pack: Web App Security Pack
+    category: web scanning
+    execution: core_runner
+    modes: [passive, active, lab]
+    install_status: not_installed
+    integration_status: runner
+    license: MIT
+    official_url: https://github.com/projectdiscovery/nuclei
+    executable: nuclei
+    install_hint: "Install from ProjectDiscovery releases or run through a scanner container."
+    input_types: [url, host]
+    output_formats: [jsonl, sarif]
+    parser: nuclei_json
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "nuclei -u {{target}} -severity info,low,medium -jsonl"
+      - mode: active
+        command: "nuclei -u {{target}} -jsonl"
+      - mode: lab
+        command: "nuclei -u {{target}} -jsonl"
+    recommended_use: "Template-based vulnerability and misconfiguration checks with evidence-backed matches."
+    risk_warning: "Template selection controls scan aggressiveness."
+
+  - id: semgrep
+    name: Semgrep
+    pack: Code Security Pack
+    category: sast
+    execution: core_runner
+    modes: [passive, active, lab]
+    install_status: not_installed
+    integration_status: runner
+    license: LGPL-2.1
+    official_url: https://github.com/semgrep/semgrep
+    executable: semgrep
+    install_hint: "Install with pipx or use the official Semgrep container."
+    input_types: [repository, filesystem]
+    output_formats: [json, sarif]
+    parser: semgrep_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "semgrep --json --config auto {{target}}"
+      - mode: active
+        command: "semgrep --json --config auto {{target}}"
+      - mode: lab
+        command: "semgrep --json --config auto {{target}}"
+    recommended_use: "Static code analysis for auth, injection, secrets-adjacent, and framework risks."
+    risk_warning: null
+
+  - id: trivy
+    name: Trivy
+    pack: Container Dependency and SBOM Pack
+    category: vuln and config scan
+    execution: core_runner
+    modes: [passive, active, lab]
+    install_status: not_installed
+    integration_status: runner
+    license: Apache-2.0
+    official_url: https://github.com/aquasecurity/trivy
+    executable: trivy
+    install_hint: "Install from Aqua releases or use the official Trivy container."
+    input_types: [repository, filesystem, container_image, sbom, kubernetes]
+    output_formats: [json, sarif, cyclonedx, spdx]
+    parser: trivy_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "trivy fs --format json {{target}}"
+      - mode: active
+        command: "trivy fs --format json {{target}}"
+      - mode: lab
+        command: "trivy fs --format json {{target}}"
+    recommended_use: "Vulnerability, secret, misconfiguration, IaC, and image risk scanning."
+    risk_warning: null
+
+  - id: gitleaks
+    name: Gitleaks
+    pack: Secrets Pack
+    category: secrets
+    execution: core_runner
+    modes: [passive, active, lab]
+    install_status: not_installed
+    integration_status: runner
+    license: MIT
+    official_url: https://github.com/gitleaks/gitleaks
+    executable: gitleaks
+    install_hint: "Install from Gitleaks releases or package managers."
+    input_types: [repository, filesystem, stdin]
+    output_formats: [json, sarif, csv]
+    parser: gitleaks_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "gitleaks detect --report-format json --no-banner --source {{target}}"
+      - mode: active
+        command: "gitleaks detect --report-format json --no-banner --source {{target}}"
+      - mode: lab
+        command: "gitleaks detect --report-format json --no-banner --source {{target}}"
+    recommended_use: "Detect committed credentials and secret-like material with raw evidence."
+    risk_warning: "Secret verification should be opt-in and non-invasive."
+
+  - id: osv-scanner
+    name: OSV-Scanner
+    pack: Container Dependency and SBOM Pack
+    category: dependency vulnerabilities
+    execution: core_runner
+    modes: [passive, active, lab]
+    install_status: not_installed
+    integration_status: runner
+    license: Apache-2.0
+    official_url: https://github.com/google/osv-scanner
+    executable: osv-scanner
+    install_hint: "Install from OSV-Scanner releases or package managers."
+    input_types: [repository, lockfile, sbom]
+    output_formats: [json, sarif]
+    parser: osv_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "osv-scanner --format json {{target}}"
+      - mode: active
+        command: "osv-scanner --format json {{target}}"
+      - mode: lab
+        command: "osv-scanner --format json {{target}}"
+    recommended_use: "Map dependency manifests and lockfiles to OSV vulnerability records."
+    risk_warning: null
+
+  - id: checkov
+    name: Checkov
+    pack: IaC and Cloud Security Pack
+    category: iac security
+    execution: core_runner
+    modes: [passive, active, lab]
+    install_status: not_installed
+    integration_status: runner
+    license: Apache-2.0
+    official_url: https://github.com/bridgecrewio/checkov
+    executable: checkov
+    install_hint: "Install with pipx or use the official Checkov container."
+    input_types: [terraform, cloudformation, kubernetes, helm, arm, serverless]
+    output_formats: [json, sarif, junit]
+    parser: checkov_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "checkov -d {{target}} -o json"
+      - mode: active
+        command: "checkov -d {{target}} -o json"
+      - mode: lab
+        command: "checkov -d {{target}} -o json"
+    recommended_use: "Scan infrastructure-as-code for cloud, Kubernetes, and policy misconfigurations."
+    risk_warning: null
+
+  - id: zap
+    name: OWASP ZAP
+    pack: Web App Security Pack
+    category: dast
+    execution: core_runner
+    modes: [passive, active, lab]
+    install_status: not_installed
+    integration_status: runner
+    license: Apache-2.0
+    official_url: https://www.zaproxy.org/
+    executable: zap-baseline.py
+    install_hint: "Use the OWASP ZAP Docker images for repeatable automation."
+    input_types: [url, openapi]
+    output_formats: [json, html, xml, markdown]
+    parser: zap_json
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "zap-baseline.py -t {{target}} -J -"
+      - mode: active
+        command: "zap-full-scan.py -t {{target}} -J -"
+      - mode: lab
+        command: "zap-full-scan.py -t {{target}} -J -"
+    recommended_use: "Baseline, API, and authenticated web application testing through controlled automation jobs."
+    risk_warning: "Full scans can submit forms and should require scope confirmation."
+
+  - id: syft
+    name: Syft
+    pack: Container Dependency and SBOM Pack
+    category: sbom
+    execution: core_runner
+    modes: [passive, active, lab]
+    install_status: not_installed
+    integration_status: runner
+    license: Apache-2.0
+    official_url: https://github.com/anchore/syft
+    executable: syft
+    install_hint: "Install from Anchore releases or package managers."
+    input_types: [container_image, filesystem, repository]
+    output_formats: [json, cyclonedx, spdx, syft-json]
+    parser: syft_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "syft {{target}} -o json"
+      - mode: active
+        command: "syft {{target}} -o json"
+      - mode: lab
+        command: "syft {{target}} -o json"
+    recommended_use: "Generate SBOMs for images and repositories before vulnerability correlation."
+    risk_warning: null
+
+  - id: grype
+    name: Grype
+    pack: Container Dependency and SBOM Pack
+    category: dependency vulnerabilities
+    execution: core_runner
+    modes: [passive, active, lab]
+    install_status: not_installed
+    integration_status: runner
+    license: Apache-2.0
+    official_url: https://github.com/anchore/grype
+    executable: grype
+    install_hint: "Install from Anchore releases or package managers."
+    input_types: [container_image, filesystem, sbom]
+    output_formats: [json, sarif, cyclonedx]
+    parser: grype_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "grype {{target}} -o json"
+      - mode: active
+        command: "grype {{target}} -o json"
+      - mode: lab
+        command: "grype {{target}} -o json"
+    recommended_use: "Cross-check package vulnerabilities from images, filesystems, and SBOMs."
+    risk_warning: null
+
+  - id: sqlmap
+    name: sqlmap
+    pack: Web App Security Pack
+    category: sql injection validation
+    execution: optional_pack
+    modes: [lab]
+    install_status: not_installed
+    integration_status: runner
+    license: GPL-2.0
+    official_url: https://github.com/sqlmapproject/sqlmap
+    executable: sqlmap
+    install_hint: "Keep disabled by default; enable only in lab mode environments."
+    input_types: [url, request_file]
+    output_formats: [text, csv]
+    parser: sqlmap_text
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: lab
+        command: "sqlmap -u {{target}} --batch --risk 1 --level 1"
+    recommended_use: "Guarded SQL injection validation for owned labs and explicitly scoped targets."
+    risk_warning: "Can exploit vulnerable systems; Asura restricts this to lab mode defaults."
+
+  - id: shodan
+    name: Shodan
+    pack: OSINT Pack
+    category: passive recon
+    execution: reference
+    modes: [passive]
+    install_status: external
+    integration_status: reference
+    license: Commercial API
+    official_url: https://www.shodan.io/
+    executable: null
+    install_hint: "Configure an external API key; Asura should not scrape Shodan."
+    input_types: [domain, ip, organization]
+    output_formats: [json]
+    parser: shodan_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [web]
+    commands: []
+    recommended_use: "Enrich asset inventory using public internet exposure datasets without touching the target."
+    risk_warning: "Requires API credentials and data-use review."
+
+  - id: rat-builders
+    name: RAT Builders
+    pack: Blocked Tools
+    category: malware
+    execution: blocked
+    modes: []
+    install_status: blocked
+    integration_status: blocked
+    license: Not applicable
+    official_url: https://example.invalid/blocked
+    executable: null
+    install_hint: null
+    input_types: []
+    output_formats: []
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: false
+    supported_os: []
+    commands: []
+    recommended_use: "Not supported by Asura."
+    risk_warning: "Credential theft, persistence, backdoor, and malware tooling is blocked."
+
+  - id: subfinder
+    name: Subfinder
+    pack: Recon Pack
+    category: subdomain discovery
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: MIT
+    official_url: https://github.com/projectdiscovery/subfinder
+    executable: subfinder
+    install_hint: "Install from ProjectDiscovery releases."
+    input_types: [domain]
+    output_formats: [jsonl, text]
+    parser: subfinder_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "subfinder -d {{target}} -json"
+    recommended_use: "Passive subdomain discovery for attack-surface inventory."
+    risk_warning: null
+
+  - id: amass
+    name: Amass
+    pack: Recon Pack
+    category: attack surface discovery
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: Apache-2.0
+    official_url: https://github.com/owasp-amass/amass
+    executable: amass
+    install_hint: "Install from OWASP Amass releases or package managers."
+    input_types: [domain]
+    output_formats: [json, text]
+    parser: amass_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "amass enum -passive -d {{target}} -json -"
+    recommended_use: "Map external attack surface and subdomain relationships using passive sources."
+    risk_warning: null
+
+  - id: httpx
+    name: httpx
+    pack: Recon Pack
+    category: http probing
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: runner
+    license: MIT
+    official_url: https://github.com/projectdiscovery/httpx
+    executable: httpx
+    install_hint: "Install from ProjectDiscovery releases."
+    input_types: [host, url, host_list]
+    output_formats: [jsonl, csv, text]
+    parser: httpx_json
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: active
+        command: "httpx -u {{target}} -json"
+    recommended_use: "Probe live HTTP services, technologies, titles, redirects, and TLS metadata."
+    risk_warning: "Touches target hosts; require scope when probing customer assets."
+
+  - id: naabu
+    name: Naabu
+    pack: Recon Pack
+    category: port discovery
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: runner
+    license: MIT
+    official_url: https://github.com/projectdiscovery/naabu
+    executable: naabu
+    install_hint: "Install from ProjectDiscovery releases."
+    input_types: [host, cidr]
+    output_formats: [jsonl, text]
+    parser: naabu_json
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: active
+        command: "naabu -host {{target}} -json"
+    recommended_use: "Fast scoped port discovery before service fingerprinting and web probing."
+    risk_warning: "Port scanning is active testing and must remain scoped and rate limited."
+
+  - id: dnsx
+    name: dnsx
+    pack: Recon Pack
+    category: dns recon
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: runner
+    license: MIT
+    official_url: https://github.com/projectdiscovery/dnsx
+    executable: dnsx
+    install_hint: "Install from ProjectDiscovery releases."
+    input_types: [domain, host]
+    output_formats: [jsonl, text]
+    parser: dnsx_json
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: active
+        command: "dnsx -d {{target}} -json"
+    recommended_use: "Resolve and enrich scoped DNS names before HTTP probing and service mapping."
+    risk_warning: "DNS resolution touches infrastructure and should respect scope and resolver policy."
+
+  - id: katana
+    name: Katana
+    pack: Recon Pack
+    category: crawler
+    execution: optional_pack
+    modes: [active, lab]
+    install_status: not_installed
+    integration_status: runner
+    license: MIT
+    official_url: https://github.com/projectdiscovery/katana
+    executable: katana
+    install_hint: "Install from ProjectDiscovery releases."
+    input_types: [url]
+    output_formats: [jsonl, text]
+    parser: katana_json
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: active
+        command: "katana -u {{target}} -jsonl"
+      - mode: lab
+        command: "katana -u {{target}} -jsonl"
+    recommended_use: "Discover routes, parameters, and linked assets before web testing."
+    risk_warning: "Crawling can generate many requests and should respect rate limits."
+
+  - id: gau
+    name: Gau
+    pack: Recon Pack
+    category: url discovery
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: MIT
+    official_url: https://github.com/lc/gau
+    executable: gau
+    install_hint: "Install from Gau releases or with Go."
+    input_types: [domain]
+    output_formats: [json, text]
+    parser: gau_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "gau --json {{target}}"
+    recommended_use: "Collect historical URLs from public datasets without touching the target."
+    risk_warning: null
+
+  - id: waybackurls
+    name: Waybackurls
+    pack: Recon Pack
+    category: url discovery
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: MIT
+    official_url: https://github.com/tomnomnom/waybackurls
+    executable: waybackurls
+    install_hint: "Install with Go or from release artifacts."
+    input_types: [domain]
+    output_formats: [text]
+    parser: waybackurls_text
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "waybackurls {{target}}"
+    recommended_use: "Collect historical URLs for route and parameter inventory."
+    risk_warning: null
+
+  - id: hakrawler
+    name: Hakrawler
+    pack: Recon Pack
+    category: crawler
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: runner
+    license: MIT
+    official_url: https://github.com/hakluke/hakrawler
+    executable: hakrawler
+    install_hint: "Install with Go."
+    input_types: [url]
+    output_formats: [json, text]
+    parser: hakrawler_json
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: active
+        command: "hakrawler -url {{target}} -json"
+    recommended_use: "Lightweight scoped crawling to discover links, scripts, and endpoints."
+    risk_warning: "Crawling is active testing and must obey rate and depth limits."
+
+  - id: webanalyze
+    name: webanalyze
+    pack: Recon Pack
+    category: tech fingerprinting
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: runner
+    license: MIT
+    official_url: https://github.com/rverton/webanalyze
+    executable: webanalyze
+    install_hint: "Install from webanalyze releases."
+    input_types: [url, host]
+    output_formats: [json]
+    parser: webanalyze_json
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: active
+        command: "webanalyze -host {{target}} -output json"
+    recommended_use: "Fingerprint web technologies to guide scanner and template selection."
+    risk_warning: "Performs HTTP requests against scoped targets."
+
+  - id: whatweb
+    name: WhatWeb
+    pack: Recon Pack
+    category: tech fingerprinting
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: runner
+    license: GPL-2.0
+    official_url: https://github.com/urbanadventurer/WhatWeb
+    executable: whatweb
+    install_hint: "Install from package managers or the upstream repository."
+    input_types: [url, host]
+    output_formats: [json, text]
+    parser: whatweb_json
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos]
+    commands:
+      - mode: active
+        command: "whatweb --log-json=- {{target}}"
+    recommended_use: "Identify web frameworks, servers, plugins, and application technologies."
+    risk_warning: "Performs HTTP fingerprinting against scoped targets."
+
+  - id: wafw00f
+    name: wafw00f
+    pack: Recon Pack
+    category: waf detection
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: runner
+    license: BSD-3-Clause
+    official_url: https://github.com/EnableSecurity/wafw00f
+    executable: wafw00f
+    install_hint: "Install with pipx or package managers."
+    input_types: [url, host]
+    output_formats: [json, text]
+    parser: wafw00f_json
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: active
+        command: "wafw00f {{target}} -f json"
+    recommended_use: "Identify web application firewalls to tune active testing safely."
+    risk_warning: "Performs active HTTP checks and should stay within scope."
+
+  - id: tlsx
+    name: tlsx
+    pack: Recon Pack
+    category: tls analysis
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: runner
+    license: MIT
+    official_url: https://github.com/projectdiscovery/tlsx
+    executable: tlsx
+    install_hint: "Install from ProjectDiscovery releases."
+    input_types: [host, url]
+    output_formats: [jsonl, text]
+    parser: tlsx_json
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: active
+        command: "tlsx -u {{target}} -json"
+    recommended_use: "Collect TLS certificate, protocol, SAN, and expiry metadata for scoped services."
+    risk_warning: "Performs network handshakes against scoped services."
+
+  - id: shuffledns
+    name: shuffledns
+    pack: Recon Pack
+    category: dns bruteforce
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: runner
+    license: GPL-3.0
+    official_url: https://github.com/projectdiscovery/shuffledns
+    executable: shuffledns
+    install_hint: "Install from ProjectDiscovery releases and configure trusted resolvers."
+    input_types: [domain, wordlist]
+    output_formats: [jsonl, text]
+    parser: shuffledns_json
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: active
+        command: "shuffledns -d {{target}} -w {{wordlist}} -r {{resolver_list}} -json"
+    recommended_use: "Scoped DNS brute force for owned domains using approved wordlists and resolvers."
+    risk_warning: "DNS brute forcing is active and must use approved domains, resolvers, and rate limits."
+
+  - id: assetfinder
+    name: Assetfinder
+    pack: Recon Pack
+    category: subdomain discovery
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: MIT
+    official_url: https://github.com/tomnomnom/assetfinder
+    executable: assetfinder
+    install_hint: "Install with Go."
+    input_types: [domain]
+    output_formats: [text]
+    parser: assetfinder_text
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "assetfinder --subs-only {{target}}"
+    recommended_use: "Passive subdomain discovery to cross-check Amass and Subfinder results."
+    risk_warning: null
+
+  - id: ffuf
+    name: FFUF
+    pack: Recon Pack
+    category: content discovery
+    execution: optional_pack
+    modes: [active, lab]
+    install_status: not_installed
+    integration_status: planned
+    license: MIT
+    official_url: https://github.com/ffuf/ffuf
+    executable: ffuf
+    install_hint: "Install from FFUF releases."
+    input_types: [url, wordlist]
+    output_formats: [json, ejson, csv]
+    parser: ffuf_json
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: active
+        command: "ffuf -u {{target}}/FUZZ -w {{wordlist}} -of json"
+    recommended_use: "Discover hidden paths and virtual hosts with scoped wordlists."
+    risk_warning: "Can be noisy; Asura should enforce rate and scope controls."
+
+  - id: dalfox
+    name: Dalfox
+    pack: Web App Security Pack
+    category: xss testing
+    execution: optional_pack
+    modes: [active, lab]
+    install_status: not_installed
+    integration_status: planned
+    license: MIT
+    official_url: https://github.com/hahwul/dalfox
+    executable: dalfox
+    install_hint: "Install from Dalfox releases."
+    input_types: [url, parameter]
+    output_formats: [json, plain]
+    parser: dalfox_json
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: active
+        command: "dalfox url {{target}} --format json"
+    recommended_use: "Validate reflected XSS candidates from crawlers and parameter discovery."
+    risk_warning: "Payload testing can alter app logs and trigger defenses."
+
+  - id: codeql
+    name: CodeQL
+    pack: Code Security Pack
+    category: semantic code analysis
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: GitHub CodeQL terms
+    official_url: https://github.com/github/codeql
+    executable: codeql
+    install_hint: "Install the CodeQL CLI and language packs."
+    input_types: [repository, codeql_database]
+    output_formats: [sarif, csv]
+    parser: sarif
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "codeql database analyze {{database}} --format=sarif-latest --output=codeql.sarif"
+    recommended_use: "Deep semantic analysis for mature application security workflows."
+    risk_warning: "Database creation can be expensive and language-specific."
+
+  - id: bandit
+    name: Bandit
+    pack: Code Security Pack
+    category: python sast
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: Apache-2.0
+    official_url: https://github.com/PyCQA/bandit
+    executable: bandit
+    install_hint: "Install with pipx."
+    input_types: [repository, filesystem]
+    output_formats: [json, sarif, text]
+    parser: bandit_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "bandit -r {{target}} -f json"
+    recommended_use: "Python-specific static security checks to enrich Semgrep results."
+    risk_warning: null
+
+  - id: pip-audit
+    name: pip-audit
+    pack: Python Dependencies Pack
+    category: python dependencies
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: Apache-2.0
+    official_url: https://github.com/pypa/pip-audit
+    executable: pip-audit
+    install_hint: "Install with pipx or run inside a Python scanner container."
+    input_types: [repository, filesystem, requirements, pyproject]
+    output_formats: [json, cyclonedx]
+    parser: pip_audit_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "pip-audit --path {{target}} --format json"
+    recommended_use: "Detect vulnerable Python dependencies from requirements, lockfiles, and installed project paths."
+    risk_warning: null
+
+  - id: npm-audit
+    name: npm audit
+    pack: JS Dependencies Pack
+    category: javascript dependencies
+    execution: optional_pack
+    modes: [passive]
+    install_status: available
+    integration_status: runner
+    license: Artistic-2.0
+    official_url: https://docs.npmjs.com/cli/v10/commands/npm-audit
+    executable: npm
+    install_hint: "Available when Node.js and npm are installed in the scanner runtime."
+    input_types: [repository, package_lock, npm_project]
+    output_formats: [json]
+    parser: npm_audit_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "npm audit --json --prefix {{target}}"
+    recommended_use: "Detect vulnerable JavaScript and TypeScript dependencies from npm lockfiles."
+    risk_warning: "Audit data may require registry access in connected environments."
+
+  - id: cargo-audit
+    name: cargo-audit
+    pack: Rust Dependencies Pack
+    category: rust dependencies
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: Apache-2.0
+    official_url: https://github.com/rustsec/rustsec
+    executable: cargo-audit
+    install_hint: "Install with cargo install cargo-audit."
+    input_types: [repository, cargo_lock]
+    output_formats: [json]
+    parser: cargo_audit_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "cargo-audit audit --json --file {{target}}/Cargo.lock"
+    recommended_use: "Detect Rust dependency vulnerabilities using the RustSec advisory database."
+    risk_warning: null
+
+  - id: govulncheck
+    name: govulncheck
+    pack: Go Dependencies Pack
+    category: go dependencies
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: BSD-3-Clause
+    official_url: https://go.dev/security/vuln/
+    executable: govulncheck
+    install_hint: "Install with go install golang.org/x/vuln/cmd/govulncheck@latest."
+    input_types: [repository, go_module]
+    output_formats: [json]
+    parser: govulncheck_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "govulncheck -json {{target}}"
+    recommended_use: "Detect reachable Go vulnerabilities using module and call-graph context."
+    risk_warning: null
+
+  - id: gosec
+    name: gosec
+    pack: Code Security Pack
+    category: go sast
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: Apache-2.0
+    official_url: https://github.com/securego/gosec
+    executable: gosec
+    install_hint: "Install from gosec releases or with go install."
+    input_types: [repository, filesystem]
+    output_formats: [json, sarif]
+    parser: gosec_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "gosec -fmt=json {{target}}/..."
+    recommended_use: "Find Go security issues such as weak crypto, unsafe file permissions, and injection-prone patterns."
+    risk_warning: null
+
+  - id: brakeman
+    name: Brakeman
+    pack: Code Security Pack
+    category: ruby rails sast
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: Brakeman Public Use License
+    official_url: https://github.com/presidentbeef/brakeman
+    executable: brakeman
+    install_hint: "Install with gem install brakeman or use a Ruby scanner container."
+    input_types: [repository, rails_app]
+    output_formats: [json, html, text]
+    parser: brakeman_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "brakeman {{target}} -f json"
+    recommended_use: "Scan Ruby on Rails applications for framework-specific security findings."
+    risk_warning: null
+
+  - id: eslint-security
+    name: ESLint security plugins
+    pack: Code Security Pack
+    category: javascript typescript sast
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: Multiple
+    official_url: https://eslint.org/
+    executable: npx
+    install_hint: "Install ESLint and configured security plugins in the scanner runtime or project workspace."
+    input_types: [repository, javascript_project, typescript_project]
+    output_formats: [json]
+    parser: eslint_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "npx eslint {{target}} --format json"
+    recommended_use: "Run JavaScript and TypeScript security lint rules alongside Semgrep findings."
+    risk_warning: "Project-local ESLint plugins can vary; record plugin versions with evidence."
+
+  - id: bearer
+    name: Bearer
+    pack: Code Security Pack
+    category: appsec sast
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: runner
+    license: Elastic-2.0
+    official_url: https://github.com/Bearer/bearer
+    executable: bearer
+    install_hint: "Install from Bearer releases or use the official container."
+    input_types: [repository, filesystem]
+    output_formats: [json, sarif]
+    parser: bearer_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos]
+    commands:
+      - mode: passive
+        command: "bearer scan {{target}} --format json"
+    recommended_use: "Find data-flow, privacy, and application-security risks across modern codebases."
+    risk_warning: null
+
+  - id: trufflehog
+    name: TruffleHog
+    pack: Secrets Pack
+    category: secrets
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: AGPL-3.0
+    official_url: https://github.com/trufflesecurity/trufflehog
+    executable: trufflehog
+    install_hint: "Install from TruffleHog releases."
+    input_types: [repository, filesystem]
+    output_formats: [json]
+    parser: trufflehog_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "trufflehog filesystem {{target}} --json"
+    recommended_use: "Second-opinion secret detection and optional safe verification workflows."
+    risk_warning: "Credential verification must be explicitly controlled."
+
+  - id: schemathesis
+    name: Schemathesis
+    pack: API Security Pack
+    category: api testing
+    execution: optional_pack
+    modes: [active, lab]
+    install_status: not_installed
+    integration_status: planned
+    license: MIT
+    official_url: https://github.com/schemathesis/schemathesis
+    executable: schemathesis
+    install_hint: "Install with pipx."
+    input_types: [openapi, graphql]
+    output_formats: [junit, json]
+    parser: schemathesis_json
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: active
+        command: "schemathesis run {{target}} --report junit"
+    recommended_use: "Property-based API testing from OpenAPI or GraphQL schemas."
+    risk_warning: "Can send generated requests; require rate limits and scope confirmation."
+
+  - id: prowler
+    name: Prowler
+    pack: IaC and Cloud Security Pack
+    category: cloud posture
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://github.com/prowler-cloud/prowler
+    executable: prowler
+    install_hint: "Install with pipx and configure cloud credentials read-only."
+    input_types: [aws_account, azure_tenant, gcp_project, kubernetes]
+    output_formats: [json, csv, html]
+    parser: prowler_json
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "prowler {{provider}} --output-formats json"
+    recommended_use: "Cloud security posture checks with read-only credentials."
+    risk_warning: "Credential scoping and audit logging are mandatory."
+
+  - id: sigma
+    name: Sigma
+    pack: Detection Engineering Pack
+    category: detection rules
+    execution: reference
+    modes: [passive]
+    install_status: external
+    integration_status: reference
+    license: Multiple
+    official_url: https://github.com/SigmaHQ/sigma
+    executable: null
+    install_hint: "Use as a rules repository and conversion source."
+    input_types: [finding, log_source]
+    output_formats: [yaml]
+    parser: sigma_yaml
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Map findings to detection opportunities and SIEM rule coverage."
+    risk_warning: null
+
+  - id: yara
+    name: YARA
+    pack: Detection Engineering Pack
+    category: pattern matching
+    execution: optional_pack
+    modes: [passive, lab]
+    install_status: not_installed
+    integration_status: planned
+    license: BSD-3-Clause
+    official_url: https://github.com/VirusTotal/yara
+    executable: yara
+    install_hint: "Install from OS packages or VirusTotal releases."
+    input_types: [file, directory, rule]
+    output_formats: [text, json]
+    parser: yara_text
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands:
+      - mode: passive
+        command: "yara {{rules}} {{target}}"
+    recommended_use: "Scan evidence and artifacts with defensive detection rules."
+    risk_warning: null
+
+  - id: garak
+    name: Garak
+    pack: LLM and AI Security Pack
+    category: llm security
+    execution: optional_pack
+    modes: [lab]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://github.com/NVIDIA/garak
+    executable: garak
+    install_hint: "Install in an isolated Python environment."
+    input_types: [llm_endpoint, model_name]
+    output_formats: [jsonl, report]
+    parser: garak_jsonl
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos]
+    commands:
+      - mode: lab
+        command: "garak --model_type {{model_type}} --model_name {{target}}"
+    recommended_use: "Run controlled LLM vulnerability probes and regression checks."
+    risk_warning: "Only run against owned models or explicitly authorized endpoints."
+
+  - id: cyberchef
+    name: CyberChef
+    pack: DFIR Pack
+    category: analyst utility
+    execution: reference
+    modes: [passive]
+    install_status: external
+    integration_status: reference
+    license: Apache-2.0
+    official_url: https://github.com/gchq/CyberChef
+    executable: null
+    install_hint: "Link to a trusted local or hosted CyberChef instance."
+    input_types: [text, file, evidence]
+    output_formats: [text]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [web]
+    commands: []
+    recommended_use: "Decode, transform, and inspect evidence without changing source artifacts."
+    risk_warning: "Sensitive evidence should stay local."
+
+  # ---------------------------------------------------------------------------
+  # The 47 additions below grow the catalog to the 90-tool spec. They are
+  # registered as planned/reference/analyzer/importer so the Arsenal can show
+  # them with truthful badges and the contract still blocks them from running.
+  # Wiring runners + parsers for these tools is tracked in the roadmap.
+  # ---------------------------------------------------------------------------
+
+  - id: feroxbuster
+    name: Feroxbuster
+    pack: Web App Security Pack
+    category: web fuzzing
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: planned
+    license: MIT
+    official_url: https://github.com/epi052/feroxbuster
+    executable: null
+    input_types: [url]
+    output_formats: [json]
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Recursive content discovery for explicitly scoped web apps."
+    risk_warning: "High-noise scanner; confirm before running."
+    risk_level: medium
+    tags: [web, fuzzing, content_discovery]
+
+  - id: gobuster
+    name: Gobuster
+    pack: Web App Security Pack
+    category: web fuzzing
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://github.com/OJ/gobuster
+    executable: null
+    input_types: [url, domain]
+    output_formats: [text, json]
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Directory, DNS, and vhost brute-forcing for authorized targets."
+    risk_warning: "High-noise scanner; confirm before running."
+    risk_level: medium
+    tags: [web, fuzzing, content_discovery]
+
+  - id: dirsearch
+    name: Dirsearch
+    pack: Web App Security Pack
+    category: web fuzzing
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: planned
+    license: GPL-2.0
+    official_url: https://github.com/maurosoria/dirsearch
+    executable: null
+    input_types: [url]
+    output_formats: [json, text]
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Web path discovery with extension-aware wordlists."
+    risk_warning: "High-noise scanner; confirm before running."
+    risk_level: medium
+    tags: [web, fuzzing, content_discovery]
+
+  - id: nikto
+    name: Nikto
+    pack: Web App Security Pack
+    category: web scanning
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: planned
+    license: GPL-2.0
+    official_url: https://github.com/sullo/nikto
+    executable: null
+    input_types: [url, host]
+    output_formats: [xml, csv, json]
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Legacy web server misconfiguration scanner."
+    risk_warning: "High-noise scanner; results require triage."
+    risk_level: high
+    tags: [web, legacy, dast]
+
+  - id: wapiti
+    name: Wapiti
+    pack: Web App Security Pack
+    category: web scanning
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: planned
+    license: GPL-2.0
+    official_url: https://wapiti-scanner.github.io/
+    executable: null
+    input_types: [url]
+    output_formats: [json, html]
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos]
+    commands: []
+    recommended_use: "Black-box web app vulnerability scanning for authorized scope."
+    risk_warning: "Active payloads; ensure scope before running."
+    risk_level: medium
+    tags: [web, dast]
+
+  - id: arjun
+    name: Arjun
+    pack: Web App Security Pack
+    category: parameter discovery
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: planned
+    license: GPL-3.0
+    official_url: https://github.com/s0md3v/Arjun
+    executable: null
+    input_types: [url]
+    output_formats: [json]
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "HTTP parameter discovery for authorized web endpoints."
+    risk_warning: "Generates many requests; scope carefully."
+    risk_level: medium
+    tags: [web, parameter_mining]
+
+  - id: kxss
+    name: kxss
+    pack: Web App Security Pack
+    category: xss discovery
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: planned
+    license: MIT
+    official_url: https://github.com/Emoe/kxss
+    executable: null
+    input_types: [url]
+    output_formats: [text]
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: false
+    supported_os: [linux, macos]
+    commands: []
+    recommended_use: "Detect reflection of input characters to highlight XSS surface."
+    risk_warning: "Always confirm authorized scope before reflection probing."
+    risk_level: medium
+    tags: [web, xss]
+
+  - id: linkfinder
+    name: LinkFinder
+    pack: Web App Security Pack
+    category: js analysis
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: MIT
+    official_url: https://github.com/GerbenJavado/LinkFinder
+    executable: null
+    input_types: [url, file]
+    output_formats: [html, json]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Extract endpoints from JavaScript files for further triage."
+    risk_warning: null
+    risk_level: low
+    tags: [web, javascript, recon]
+
+  - id: secretfinder
+    name: SecretFinder
+    pack: Secrets Pack
+    category: secret discovery
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: MIT
+    official_url: https://github.com/m4ll0k/SecretFinder
+    executable: null
+    input_types: [url, file]
+    output_formats: [html, text]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos]
+    commands: []
+    recommended_use: "Find embedded secrets in JS files via regex heuristics."
+    risk_warning: null
+    risk_level: low
+    tags: [secrets, javascript]
+
+  - id: retirejs
+    name: Retire.js
+    pack: Web App Security Pack
+    category: dependency scanning
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://retirejs.github.io/retire.js/
+    executable: null
+    input_types: [url, file]
+    output_formats: [json]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Detect vulnerable JavaScript libraries in front-end code."
+    risk_warning: null
+    risk_level: low
+    tags: [web, sca, javascript]
+
+  - id: corsy
+    name: Corsy
+    pack: Web App Security Pack
+    category: cors testing
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: planned
+    license: GPL-3.0
+    official_url: https://github.com/s0md3v/Corsy
+    executable: null
+    input_types: [url]
+    output_formats: [json]
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: false
+    supported_os: [linux, macos]
+    commands: []
+    recommended_use: "Probe CORS configurations for permissive or reflected origins."
+    risk_warning: null
+    risk_level: low
+    tags: [web, cors]
+
+  - id: crlfuzz
+    name: CRLFuzz
+    pack: Web App Security Pack
+    category: http injection
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: planned
+    license: MIT
+    official_url: https://github.com/dwisiswant0/crlfuzz
+    executable: null
+    input_types: [url]
+    output_formats: [text]
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: false
+    supported_os: [linux, macos]
+    commands: []
+    recommended_use: "Detect CRLF injection on authorized targets."
+    risk_warning: null
+    risk_level: medium
+    tags: [web, injection]
+
+  - id: openredirex
+    name: OpenRedireX
+    pack: Web App Security Pack
+    category: open redirect
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: planned
+    license: GPL-3.0
+    official_url: https://github.com/devanshbatham/OpenRedireX
+    executable: null
+    input_types: [url]
+    output_formats: [text]
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: false
+    supported_os: [linux, macos]
+    commands: []
+    recommended_use: "Test for open-redirect parameters using a payload list."
+    risk_warning: null
+    risk_level: low
+    tags: [web, open_redirect]
+
+  - id: kiterunner
+    name: Kiterunner
+    pack: API Security Pack
+    category: api discovery
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://github.com/assetnote/kiterunner
+    executable: null
+    input_types: [url, host]
+    output_formats: [text]
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos]
+    commands: []
+    recommended_use: "API endpoint discovery using API-aware wordlists."
+    risk_warning: "High-noise scanner; confirm before running."
+    risk_level: medium
+    tags: [api, fuzzing]
+
+  - id: jwt-tool
+    name: jwt_tool
+    pack: API Security Pack
+    category: jwt analysis
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: GPL-3.0
+    official_url: https://github.com/ticarpi/jwt_tool
+    executable: null
+    input_types: [token, url]
+    output_formats: [text]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Inspect and analyse JWTs for misconfigurations or weak signing."
+    risk_warning: null
+    risk_level: low
+    tags: [api, auth, jwt]
+
+  - id: graphql-voyager
+    name: GraphQL Voyager
+    pack: API Security Pack
+    category: graphql visualization
+    execution: reference
+    install_status: external
+    integration_status: reference
+    license: MIT
+    official_url: https://github.com/IvanGoncharov/graphql-voyager
+    executable: null
+    input_types: [schema]
+    output_formats: [html]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [web]
+    commands: []
+    recommended_use: "Visualize an introspected GraphQL schema to plan testing."
+    risk_warning: null
+    risk_level: low
+    tags: [api, graphql, visualization]
+
+  - id: inql
+    name: InQL
+    pack: API Security Pack
+    category: graphql testing
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: AGPL-3.0
+    official_url: https://github.com/doyensec/inql
+    executable: null
+    input_types: [url]
+    output_formats: [json, html]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Inspect GraphQL endpoints for schema and query risks."
+    risk_warning: null
+    risk_level: low
+    tags: [api, graphql]
+
+  - id: graphql-cop
+    name: graphql-cop
+    pack: API Security Pack
+    category: graphql testing
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: MIT
+    official_url: https://github.com/dolevf/graphql-cop
+    executable: null
+    input_types: [url]
+    output_formats: [json]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos]
+    commands: []
+    recommended_use: "Detect common GraphQL misconfigurations."
+    risk_warning: null
+    risk_level: low
+    tags: [api, graphql]
+
+  - id: restler
+    name: RESTler
+    pack: API Security Pack
+    category: api fuzzing
+    execution: optional_pack
+    modes: [active]
+    install_status: not_installed
+    integration_status: planned
+    license: MIT
+    official_url: https://github.com/microsoft/restler-fuzzer
+    executable: null
+    input_types: [openapi]
+    output_formats: [json, html]
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Stateful REST API fuzzer derived from an OpenAPI document."
+    risk_warning: "Generates many requests; scope carefully."
+    risk_level: medium
+    tags: [api, fuzzing, openapi]
+
+  - id: postman-importer
+    name: Postman Importer
+    pack: API Security Pack
+    category: api import
+    execution: importer
+    install_status: external
+    integration_status: importer
+    license: Apache-2.0
+    official_url: https://www.postman.com/
+    executable: null
+    input_types: [postman_collection]
+    output_formats: [internal]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Import Postman collections as testable API targets."
+    risk_warning: null
+    risk_level: low
+    tags: [api, importer]
+
+  - id: openapi-parser
+    name: OpenAPI Parser
+    pack: API Security Pack
+    category: api import
+    execution: importer
+    install_status: bundled
+    integration_status: importer
+    license: Apache-2.0
+    official_url: https://swagger.io/specification/
+    executable: null
+    input_types: [openapi]
+    output_formats: [internal]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Parse OpenAPI/Swagger specs into Asura's internal API target model."
+    risk_warning: null
+    risk_level: low
+    tags: [api, importer, openapi]
+
+  - id: detect-secrets
+    name: detect-secrets
+    pack: Secrets Pack
+    category: secret scanning
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://github.com/Yelp/detect-secrets
+    executable: null
+    input_types: [repository, file]
+    output_formats: [json]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Yelp's enterprise-friendly secret scanner with baseline support."
+    risk_warning: null
+    risk_level: low
+    tags: [secrets, sast]
+
+  - id: detect-secrets-baseline
+    name: detect-secrets baseline
+    pack: Secrets Pack
+    category: secret baseline
+    execution: analyzer
+    install_status: not_installed
+    integration_status: analyzer
+    license: Apache-2.0
+    official_url: https://github.com/Yelp/detect-secrets
+    executable: null
+    input_types: [baseline_file]
+    output_formats: [json]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Analyse detect-secrets baselines to suppress known acknowledged findings."
+    risk_warning: null
+    risk_level: low
+    tags: [secrets, analyzer]
+
+  - id: whispers
+    name: Whispers
+    pack: Secrets Pack
+    category: secret scanning
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: MIT
+    official_url: https://github.com/Skyscanner/whispers
+    executable: null
+    input_types: [repository, file]
+    output_formats: [json, yaml]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Detect hard-coded secrets in source, configs, and infrastructure files."
+    risk_warning: null
+    risk_level: low
+    tags: [secrets, sast]
+
+  - id: kics
+    name: KICS
+    pack: IaC Pack
+    category: iac scanning
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://kics.io/
+    executable: null
+    input_types: [repository, terraform, kubernetes]
+    output_formats: [json, sarif]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Multi-IaC misconfiguration scanner from Checkmarx."
+    risk_warning: null
+    risk_level: low
+    tags: [iac, terraform, kubernetes]
+
+  - id: terrascan
+    name: Terrascan
+    pack: IaC Pack
+    category: iac scanning
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://runterrascan.io/
+    executable: null
+    input_types: [terraform, kubernetes]
+    output_formats: [json, sarif]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Policy-driven IaC misconfiguration scanner."
+    risk_warning: null
+    risk_level: low
+    tags: [iac, terraform]
+
+  - id: tfsec-compatible
+    name: tfsec (compatible)
+    pack: IaC Pack
+    category: iac scanning
+    execution: reference
+    install_status: external
+    integration_status: reference
+    license: MIT
+    official_url: https://github.com/aquasecurity/tfsec
+    executable: null
+    input_types: [terraform]
+    output_formats: [json, sarif]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Reference entry — Asura prefers Trivy/Checkov for tfsec-style coverage."
+    risk_warning: null
+    risk_level: low
+    tags: [iac, terraform, reference]
+
+  - id: cloudsplaining
+    name: Cloudsplaining
+    pack: Cloud Security Pack
+    category: iam analysis
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: BSD-3-Clause
+    official_url: https://github.com/salesforce/cloudsplaining
+    executable: null
+    input_types: [iam_policy]
+    output_formats: [html, json]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Identify overbroad AWS IAM policies from offline policy documents."
+    risk_warning: null
+    risk_level: medium
+    tags: [cloud, iam, aws]
+
+  - id: scoutsuite
+    name: ScoutSuite
+    pack: Cloud Security Pack
+    category: cloud posture
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: GPL-2.0
+    official_url: https://github.com/nccgroup/ScoutSuite
+    executable: null
+    input_types: [cloud_account]
+    output_formats: [html, json]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Multi-cloud security posture review for read-only audit credentials."
+    risk_warning: "Requires cloud credentials with read access; never store keys in repo."
+    risk_level: medium
+    tags: [cloud, audit]
+
+  - id: steampipe
+    name: Steampipe
+    pack: Cloud Security Pack
+    category: cloud query
+    execution: reference
+    install_status: external
+    integration_status: reference
+    license: AGPL-3.0
+    official_url: https://steampipe.io/
+    executable: null
+    input_types: [cloud_account]
+    output_formats: [sql]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Reference link for SQL-driven cloud inventory and posture checks."
+    risk_warning: null
+    risk_level: low
+    tags: [cloud, audit, sql]
+
+  - id: parliament
+    name: Parliament
+    pack: Cloud Security Pack
+    category: iam analysis
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: BSD-3-Clause
+    official_url: https://github.com/duo-labs/parliament
+    executable: null
+    input_types: [iam_policy]
+    output_formats: [json]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Lint AWS IAM policies for syntax issues and known anti-patterns."
+    risk_warning: null
+    risk_level: low
+    tags: [cloud, iam, aws]
+
+  - id: cfn-nag
+    name: cfn-nag
+    pack: IaC Pack
+    category: iac scanning
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: MIT
+    official_url: https://github.com/stelligent/cfn_nag
+    executable: null
+    input_types: [cloudformation]
+    output_formats: [json]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos]
+    commands: []
+    recommended_use: "Lint AWS CloudFormation templates for security anti-patterns."
+    risk_warning: null
+    risk_level: low
+    tags: [iac, aws, cloudformation]
+
+  - id: kube-score
+    name: kube-score
+    pack: Kubernetes Pack
+    category: k8s lint
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: MIT
+    official_url: https://kube-score.com/
+    executable: null
+    input_types: [kubernetes]
+    output_formats: [json, text]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Lint Kubernetes manifests for security best practices."
+    risk_warning: null
+    risk_level: low
+    tags: [kubernetes, lint]
+
+  - id: kube-bench
+    name: kube-bench
+    pack: Kubernetes Pack
+    category: cis benchmark
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://github.com/aquasecurity/kube-bench
+    executable: null
+    input_types: [cluster]
+    output_formats: [json]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux]
+    commands: []
+    recommended_use: "Run CIS Kubernetes Benchmark checks against an authorized cluster."
+    risk_warning: "Requires cluster access; treat output as sensitive."
+    risk_level: medium
+    tags: [kubernetes, cis, benchmark]
+
+  - id: kubescape
+    name: Kubescape
+    pack: Kubernetes Pack
+    category: k8s posture
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://kubescape.io/
+    executable: null
+    input_types: [cluster, kubernetes]
+    output_formats: [json, sarif]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "K8s posture scanning aligned with NSA, MITRE, and ARMO frameworks."
+    risk_warning: null
+    risk_level: medium
+    tags: [kubernetes, posture]
+
+  - id: polaris
+    name: Polaris
+    pack: Kubernetes Pack
+    category: k8s lint
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://polaris.docs.fairwinds.com/
+    executable: null
+    input_types: [cluster, kubernetes]
+    output_formats: [json]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Cluster and manifest best-practice checks from Fairwinds."
+    risk_warning: null
+    risk_level: low
+    tags: [kubernetes, lint]
+
+  - id: docker-bench-security
+    name: docker-bench-security
+    pack: Container Pack
+    category: container benchmark
+    execution: optional_pack
+    modes: [passive]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://github.com/docker/docker-bench-security
+    executable: null
+    input_types: [host]
+    output_formats: [json, text]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: false
+    supported_os: [linux]
+    commands: []
+    recommended_use: "CIS Docker Benchmark checks against an authorized host."
+    risk_warning: "Runs against a host; ensure ownership."
+    risk_level: medium
+    tags: [docker, cis, benchmark]
+
+  - id: falco
+    name: Falco
+    pack: Detection Pack
+    category: runtime detection
+    execution: reference
+    install_status: external
+    integration_status: reference
+    license: Apache-2.0
+    official_url: https://falco.org/
+    executable: null
+    input_types: [host, kubernetes]
+    output_formats: [json, log]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: true
+    supported_os: [linux]
+    commands: []
+    recommended_use: "Reference for runtime threat detection rules on Linux/Kubernetes."
+    risk_warning: null
+    risk_level: low
+    tags: [detection, runtime, kubernetes]
+
+  - id: suricata-rules
+    name: Suricata Rules
+    pack: Detection Pack
+    category: ids/ips
+    execution: analyzer
+    install_status: external
+    integration_status: analyzer
+    license: GPL-2.0
+    official_url: https://suricata.io/
+    executable: null
+    input_types: [rules_file]
+    output_formats: [yaml]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: false
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Analyse and document IDS/IPS rule packs that pair with findings."
+    risk_warning: null
+    risk_level: low
+    tags: [detection, ids, analyzer]
+
+  - id: zeek
+    name: Zeek
+    pack: Detection Pack
+    category: network monitoring
+    execution: reference
+    install_status: external
+    integration_status: reference
+    license: BSD-3-Clause
+    official_url: https://zeek.org/
+    executable: null
+    input_types: [pcap, interface]
+    output_formats: [log]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: true
+    supported_os: [linux, macos]
+    commands: []
+    recommended_use: "Reference link for high-fidelity network monitoring logs."
+    risk_warning: null
+    risk_level: low
+    tags: [detection, network]
+
+  - id: osquery
+    name: osquery
+    pack: Detection Pack
+    category: endpoint telemetry
+    execution: reference
+    install_status: external
+    integration_status: reference
+    license: Apache-2.0
+    official_url: https://osquery.io/
+    executable: null
+    input_types: [host]
+    output_formats: [json, log]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: true
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Reference link for SQL-based endpoint telemetry."
+    risk_warning: null
+    risk_level: low
+    tags: [detection, endpoint, blue_team]
+
+  - id: chainsaw
+    name: Chainsaw
+    pack: DFIR Pack
+    category: log triage
+    execution: optional_pack
+    modes: [lab]
+    install_status: not_installed
+    integration_status: planned
+    license: GPL-3.0
+    official_url: https://github.com/WithSecureLabs/chainsaw
+    executable: null
+    input_types: [windows_event_log]
+    output_formats: [json, csv]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: true
+    requires_lab_mode: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Fast Windows event log triage for authorized investigations."
+    risk_warning: "Operate on copies of evidence in lab mode only."
+    risk_level: high
+    tags: [dfir, windows, log_triage]
+
+  - id: hayabusa
+    name: Hayabusa
+    pack: DFIR Pack
+    category: log triage
+    execution: optional_pack
+    modes: [lab]
+    install_status: not_installed
+    integration_status: planned
+    license: GPL-3.0
+    official_url: https://github.com/Yamato-Security/hayabusa
+    executable: null
+    input_types: [windows_event_log]
+    output_formats: [json, csv]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: true
+    requires_lab_mode: true
+    docker_available: false
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Sigma-driven Windows event log triage for authorized investigations."
+    risk_warning: "Operate on copies of evidence in lab mode only."
+    risk_level: high
+    tags: [dfir, windows, sigma]
+
+  - id: velociraptor
+    name: Velociraptor
+    pack: DFIR Pack
+    category: endpoint dfir
+    execution: optional_pack
+    modes: [lab]
+    install_status: not_installed
+    integration_status: planned
+    license: AGPL-3.0
+    official_url: https://docs.velociraptor.app/
+    executable: null
+    input_types: [host, cluster]
+    output_formats: [json]
+    parser: null
+    safe_default: false
+    requires_authorized_scope: true
+    requires_lab_mode: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Authorized endpoint DFIR collection and hunting."
+    risk_warning: "Endpoint access requires lab mode and explicit authorization."
+    risk_level: restricted
+    tags: [dfir, endpoint]
+
+  - id: volatility3
+    name: Volatility 3
+    pack: DFIR Pack
+    category: memory forensics
+    execution: optional_pack
+    modes: [lab]
+    install_status: not_installed
+    integration_status: planned
+    license: VSL-1.0
+    official_url: https://github.com/volatilityfoundation/volatility3
+    executable: null
+    input_types: [memory_image]
+    output_formats: [json, text]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: true
+    requires_lab_mode: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Memory image analysis for authorized investigations."
+    risk_warning: "Run only on memory images you are authorized to inspect."
+    risk_level: high
+    tags: [dfir, memory_forensics]
+
+  - id: plaso
+    name: Plaso
+    pack: DFIR Pack
+    category: timeline forensics
+    execution: optional_pack
+    modes: [lab]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://plaso.readthedocs.io/
+    executable: null
+    input_types: [disk_image, evidence]
+    output_formats: [plaso_storage]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: true
+    requires_lab_mode: true
+    docker_available: true
+    supported_os: [linux, macos, windows]
+    commands: []
+    recommended_use: "Build forensic super-timelines for authorized investigations."
+    risk_warning: "Operate only on authorized evidence; mind chain of custody."
+    risk_level: high
+    tags: [dfir, timeline]
+
+  - id: timesketch
+    name: Timesketch
+    pack: DFIR Pack
+    category: timeline analysis
+    execution: optional_pack
+    modes: [lab]
+    install_status: not_installed
+    integration_status: planned
+    license: Apache-2.0
+    official_url: https://timesketch.org/
+    executable: null
+    input_types: [plaso_storage]
+    output_formats: [json]
+    parser: null
+    safe_default: true
+    requires_authorized_scope: true
+    requires_lab_mode: true
+    docker_available: true
+    supported_os: [linux]
+    commands: []
+    recommended_use: "Collaborative timeline analysis for authorized investigations."
+    risk_warning: "Use lab deployments for non-production data only."
+    risk_level: high
+    tags: [dfir, timeline, collaboration]
