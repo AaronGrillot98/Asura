@@ -15,18 +15,22 @@ from app.models.schemas import (
     ArsenalSummary,
     AttackPath,
     AuditLog,
+    AuthorizedScope,
     DashboardSummary,
     Evidence,
     Finding,
     FindingStatusPatch,
     Project,
+    ProjectCreate,
+    ProjectUpdate,
     RegistryContractReport,
     Report,
     ReportRequest,
     ScanRequest,
     ScannerRun,
+    ScopeRules,
     Target,
-    AuthorizedScope,
+    TargetCreate,
 )
 from app.repositories import get_repos
 from app.security.blocked_capabilities import as_dicts as blocked_capabilities_dicts
@@ -85,9 +89,193 @@ def project_detail(project_id: str) -> Project:
     return project
 
 
+@router.post("/projects", response_model=Project, status_code=201)
+def create_project(request: ProjectCreate) -> Project:
+    """Create a new project + record an implicit AuthorizedScope grant.
+
+    `is_demo_data` is hard-set to False — only the seeded `demo` project
+    carries the demo flag, ever.
+    """
+    repos = get_repos()
+    # Soft uniqueness check on name within workspace.
+    existing = repos.projects.find(
+        lambda p: p.workspace_id == request.workspace_id and p.name.lower() == request.name.lower()
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"A project named '{request.name}' already exists in this workspace.",
+        )
+    now = datetime.now(timezone.utc)
+    project_id = f"proj-{uuid4().hex[:10]}"
+    project = Project(
+        id=project_id,
+        workspace_id=request.workspace_id,
+        name=request.name,
+        description=request.description,
+        scope_rules=request.scope_rules,
+        risk_score=request.risk_score,
+        targets=[],
+        created_at=now,
+        is_demo_data=False,
+    )
+    repos.projects.add(project)
+    # Auto-create an AuthorizedScope record so the audit trail starts now.
+    scope = AuthorizedScope(
+        id=f"scope-{uuid4().hex[:10]}",
+        project_id=project_id,
+        name=f"{request.name} initial authorization",
+        scope_rules=request.scope_rules,
+        explicit_authorization_grant=bool(request.grantor),
+        grantor=request.grantor,
+        granted_at=now if request.grantor else None,
+        audit_note="Created with project.",
+        is_demo_data=False,
+    )
+    repos.scopes.add(scope)
+    # Audit the creation.
+    repos.audit.add(
+        AuditLog(
+            id=f"audit-{uuid4().hex[:12]}",
+            workspace_id=request.workspace_id,
+            actor=request.grantor or "demo-user",
+            action="project.create",
+            event_type="project_lifecycle",
+            target=project_id,
+            result="allow",
+            decision="allow",
+            reason=None,
+            reason_code="project_created",
+            payload={"name": request.name, "scope": request.scope_rules.model_dump()},
+            timestamp=now,
+        )
+    )
+    return project
+
+
+@router.patch("/projects/{project_id}", response_model=Project)
+def update_project(project_id: str, request: ProjectUpdate) -> Project:
+    repos = get_repos()
+    project = repos.projects.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.is_demo_data and (request.scope_rules is not None or request.name is not None):
+        # The demo project is read-only for name/scope; users can still tweak
+        # risk_score / description if they want.
+        if request.scope_rules is not None or request.name is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="The seeded demo project is read-only. Create a new project instead.",
+            )
+    data = project.model_dump()
+    for field in ("name", "description", "scope_rules", "risk_score"):
+        value = getattr(request, field)
+        if value is not None:
+            data[field] = value.model_dump() if hasattr(value, "model_dump") else value
+    updated = Project.model_validate(data)
+    repos.projects.update(updated)
+    repos.audit.add(
+        AuditLog(
+            id=f"audit-{uuid4().hex[:12]}",
+            workspace_id=project.workspace_id,
+            actor="demo-user",
+            action="project.update",
+            event_type="project_lifecycle",
+            target=project_id,
+            result="allow",
+            decision="allow",
+            reason_code="project_updated",
+            payload={"fields": [f for f in ("name", "description", "scope_rules", "risk_score") if getattr(request, f) is not None]},
+            timestamp=datetime.now(timezone.utc),
+        )
+    )
+    return updated
+
+
+@router.delete("/projects/{project_id}", status_code=204, response_class=Response)
+def delete_project(project_id: str) -> Response:
+    repos = get_repos()
+    project = repos.projects.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.is_demo_data or project_id == "demo":
+        raise HTTPException(
+            status_code=400,
+            detail="The seeded demo project cannot be deleted. Create a new project to use Asura against your own systems.",
+        )
+    # Cascade delete: targets, scopes, scans, findings, evidence, attack paths,
+    # remediations, schedules, and any reports.
+    for repo, attr in (
+        (repos.targets, "project_id"),
+        (repos.scopes, "project_id"),
+        (repos.runs, "project_id"),
+        (repos.findings, "project_id"),
+        (repos.attack_paths, "project_id"),
+        (repos.remediations, "project_id"),
+        (repos.schedules, "project_id"),
+        (repos.reports, "project_id"),
+        (repos.assets, "project_id"),
+    ):
+        for item in list(repo.list()):
+            if getattr(item, attr, None) == project_id:
+                repo.delete(item.id)
+    # Evidence is attached to findings, which we just deleted — clean orphans.
+    for ev in list(repos.evidence.list()):
+        if ev.finding_id and not repos.findings.get(ev.finding_id):
+            repos.evidence.delete(ev.id)
+    repos.projects.delete(project_id)
+    repos.audit.add(
+        AuditLog(
+            id=f"audit-{uuid4().hex[:12]}",
+            workspace_id=project.workspace_id,
+            actor="demo-user",
+            action="project.delete",
+            event_type="project_lifecycle",
+            target=project_id,
+            result="allow",
+            decision="allow",
+            reason_code="project_deleted",
+            timestamp=datetime.now(timezone.utc),
+        )
+    )
+    return Response(status_code=204)
+
+
 @router.get("/projects/{project_id}/targets", response_model=list[Target])
 def project_targets(project_id: str) -> list[Target]:
     return [t for t in get_repos().targets.list() if t.project_id == project_id]
+
+
+@router.post("/projects/{project_id}/targets", response_model=Target, status_code=201)
+def add_project_target(project_id: str, request: TargetCreate) -> Target:
+    repos = get_repos()
+    project = repos.projects.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    target = Target(
+        id=f"target-{uuid4().hex[:10]}",
+        project_id=project_id,
+        kind=request.kind,
+        value=request.value.strip(),
+        authorized=request.authorized,
+        lab_mode_enabled=request.lab_mode_enabled,
+        owned_internal=request.owned_internal,
+        notes=request.notes,
+        created_at=datetime.now(timezone.utc),
+        is_demo_data=False,
+    )
+    repos.targets.add(target)
+    return target
+
+
+@router.delete("/projects/{project_id}/targets/{target_id}", status_code=204, response_class=Response)
+def delete_project_target(project_id: str, target_id: str) -> Response:
+    repos = get_repos()
+    target = repos.targets.get(target_id)
+    if target is None or target.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Target not found")
+    repos.targets.delete(target_id)
+    return Response(status_code=204)
 
 
 @router.get("/projects/{project_id}/scopes", response_model=list[AuthorizedScope])
@@ -157,6 +345,10 @@ def dashboard(project_id: str) -> DashboardSummary:
     paths = [p for p in repos.attack_paths.list() if p.project_id == project_id]
     brain = PentestBrain(repos)
     agent_outputs = [brain.correlate_findings(project_id), brain._scope_summary(project_id)]  # noqa: SLF001
+    # The seeded risk trend belongs to the demo project. Real user projects
+    # start with an empty trend and gain history as scans accumulate (the
+    # per-project trend computation lands in a later slice).
+    risk_trend = RISK_TREND if project.is_demo_data else []
     return DashboardSummary(
         workspace=repos.workspaces.list()[0] if repos.workspaces.count() else None,
         project=project,
@@ -165,7 +357,7 @@ def dashboard(project_id: str) -> DashboardSummary:
         scanner_runs=runs,
         attack_paths=paths,
         agent_outputs=agent_outputs,
-        risk_trend=RISK_TREND,
+        risk_trend=risk_trend,
         fix_first=sorted_findings[:5],
         is_demo_data=any(f.is_demo_data for f in findings) or project.is_demo_data,
     )

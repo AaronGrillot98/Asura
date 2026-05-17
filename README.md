@@ -100,6 +100,32 @@ Every seeded finding is flagged `is_demo_data: true` and the dashboard renders a
 
 If you'd rather keep the dashboard frozen on seeded content (useful for screenshots, demos, or air-gapped review), set `ASURA_DEMO_MODE=1` in the backend environment — every subsequent scan returns labelled seeded output instead of spawning a real process.
 
+## Creating a project for your own systems
+
+The seeded `Acme FlightOps Demo` project is read-only. To run Asura
+against systems you own:
+
+1. Visit `/projects` and click **New project**.
+2. Give it a name, a description, and the **authorized scope** rules:
+   one entry per line for each of domains, URLs, CIDRs, repos, and
+   containers. Toggle "Allow authorized active scans" if you want to
+   submit active scans (you'll still confirm authorization on each run).
+3. Click **Create project**. Asura also records an `AuthorizedScope`
+   audit entry (visible on `/audit`) capturing who authorized the
+   engagement.
+4. On the project detail page, **Add targets** (URLs, repos, hosts,
+   container images) one at a time. Mark each as authorized; if it's a
+   private IP you intend to scan actively, also check "Owned / internal".
+5. Click **Run scan**. The form is pre-filled with the project. Pick a
+   scanner, mode (passive / active / lab), and submit.
+6. The Find­ings page shows the parsed results filtered to your project.
+   The seeded demo data stays separate.
+
+To remove a project you created, click **Delete** on its detail page —
+all targets, scans, findings, evidence, attack paths, and reports are
+cascade-deleted. The seeded demo project is protected and cannot be
+deleted from the UI.
+
 ## Safety model
 
 - Passive mode is the default. Active and lab scans require explicit authorization.

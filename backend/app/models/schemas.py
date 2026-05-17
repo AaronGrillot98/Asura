@@ -469,3 +469,37 @@ class FindingStatusPatch(BaseModel):
 
 class ReportRequest(BaseModel):
     kind: Literal["markdown", "json"] = "markdown"
+
+
+class ProjectCreate(BaseModel):
+    """Request body for `POST /api/projects`.
+
+    `scope_rules` is the source of truth for what the scope guard will
+    allow. `grantor` is captured into an auto-created `AuthorizedScope`
+    so the project carries an audit trail from day one.
+    """
+
+    name: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=2000)
+    workspace_id: str = "workspace-demo"
+    scope_rules: ScopeRules = Field(default_factory=ScopeRules)
+    grantor: str | None = None
+    risk_score: int = Field(default=0, ge=0, le=100)
+
+
+class ProjectUpdate(BaseModel):
+    """Request body for `PATCH /api/projects/{id}`. All fields optional."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    scope_rules: ScopeRules | None = None
+    risk_score: int | None = Field(default=None, ge=0, le=100)
+
+
+class TargetCreate(BaseModel):
+    kind: Literal["host", "repo", "url", "domain", "ip", "cidr", "container", "api_spec"]
+    value: str = Field(min_length=1, max_length=2048)
+    authorized: bool = False
+    lab_mode_enabled: bool = False
+    owned_internal: bool = False
+    notes: str | None = None

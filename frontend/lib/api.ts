@@ -317,6 +317,113 @@ export async function startScan(payload: StartScanRequest): Promise<ScannerRun[]
   return response.json();
 }
 
+// ---- Project + scope + target mutations ----
+
+export type ProjectCreate = {
+  name: string;
+  description?: string;
+  workspace_id?: string;
+  scope_rules: ScopeRules;
+  grantor?: string | null;
+  risk_score?: number;
+};
+
+export type ProjectUpdate = {
+  name?: string;
+  description?: string;
+  scope_rules?: ScopeRules;
+  risk_score?: number;
+};
+
+export type TargetCreate = {
+  kind: "host" | "repo" | "url" | "domain" | "ip" | "cidr" | "container" | "api_spec";
+  value: string;
+  authorized?: boolean;
+  lab_mode_enabled?: boolean;
+  owned_internal?: boolean;
+  notes?: string | null;
+};
+
+export type Target = {
+  id: string;
+  project_id: string;
+  kind: string;
+  value: string;
+  authorized: boolean;
+  lab_mode_enabled: boolean;
+  owned_internal: boolean;
+  notes?: string | null;
+  is_demo_data?: boolean;
+};
+
+export async function createProject(payload: ProjectCreate): Promise<Project> {
+  const response = await fetch(`${API_URL}/api/projects`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `POST /api/projects returned ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function updateProject(id: string, payload: ProjectUpdate): Promise<Project> {
+  const response = await fetch(`${API_URL}/api/projects/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `PATCH /api/projects/${id} returned ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/projects/${id}`, {
+    method: "DELETE",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `DELETE /api/projects/${id} returned ${response.status}`);
+  }
+}
+
+export async function getTargets(projectId: string): Promise<Target[]> {
+  return getJson<Target[]>(`/api/projects/${projectId}/targets`);
+}
+
+export async function addTarget(projectId: string, payload: TargetCreate): Promise<Target> {
+  const response = await fetch(`${API_URL}/api/projects/${projectId}/targets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `POST /api/projects/${projectId}/targets returned ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function deleteTarget(projectId: string, targetId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/projects/${projectId}/targets/${targetId}`, {
+    method: "DELETE",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `DELETE returned ${response.status}`);
+  }
+}
+
 export function reportUrl(projectId: string) {
   return `${API_URL}/api/reports/${projectId}/markdown`;
 }

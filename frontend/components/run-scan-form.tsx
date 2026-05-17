@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Play } from "lucide-react";
-import { startScan, type ScannerRun, type StartScanRequest } from "@/lib/api";
+import { startScan, type Project, type ScannerRun, type StartScanRequest } from "@/lib/api";
 
 const CORE_SCANNERS: { id: string; label: string; defaultMode: "passive" | "active" }[] = [
   // Core 10 — first-class engines
@@ -40,9 +40,18 @@ type Status =
   | { kind: "ok"; runs: ScannerRun[] }
   | { kind: "error"; message: string };
 
-export function RunScanForm({ projectId = "demo" }: { projectId?: string }) {
+export function RunScanForm({
+  projectId,
+  projects,
+  lockProject = false,
+}: {
+  projectId?: string;
+  projects?: Project[];
+  lockProject?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [activeProjectId, setActiveProjectId] = useState(projectId ?? projects?.[0]?.id ?? "demo");
   const [target, setTarget] = useState("");
   const [scanners, setScanners] = useState<string[]>(["semgrep"]);
   const [mode, setMode] = useState<"passive" | "active" | "lab">("passive");
@@ -72,7 +81,7 @@ export function RunScanForm({ projectId = "demo" }: { projectId?: string }) {
       return;
     }
     const payload: StartScanRequest = {
-      project_id: projectId,
+      project_id: activeProjectId,
       target: target.trim(),
       scanners,
       mode,
@@ -107,6 +116,23 @@ export function RunScanForm({ projectId = "demo" }: { projectId?: string }) {
         </button>
       </div>
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+        {projects && projects.length > 0 && !lockProject ? (
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ color: "#94a3b8", fontSize: 12 }}>Project</span>
+            <select
+              value={activeProjectId}
+              onChange={(e) => setActiveProjectId(e.target.value)}
+              style={{ background: "#0b1320", color: "#e8eef6", border: "1px solid #1f2937", borderRadius: 8, padding: "8px 10px", fontSize: 13, height: 40 }}
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                  {p.is_demo_data ? " (demo)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label style={{ display: "grid", gap: 4 }}>
           <span style={{ color: "#94a3b8", fontSize: 12 }}>Target</span>
           <input

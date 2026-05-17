@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { getProjects } from "@/lib/api";
 import { DemoBadge } from "@/components/badges";
 
@@ -14,6 +15,9 @@ export default async function ProjectsPage() {
           <h1>Projects</h1>
           <p>{projects.length} project(s) registered in this workspace.</p>
         </div>
+        <Link href="/projects/new" className="button">
+          <Plus size={14} /> New project
+        </Link>
       </header>
       <section className="panel">
         {projects.map((p) => (
@@ -23,7 +27,9 @@ export default async function ProjectsPage() {
                 <strong style={{ fontSize: 16 }}>{p.name}</strong>{" "}
                 <DemoBadge demo={p.is_demo_data} />
                 <p style={{ color: "#94a3b8", margin: "4px 0 0" }}>{p.description}</p>
-                <small style={{ color: "#94a3b8" }}>Risk score: {p.risk_score}/100 · targets: {p.targets.length}</small>
+                <small style={{ color: "#94a3b8" }}>
+                  Risk score: {p.risk_score}/100 · targets: {p.targets.length}
+                </small>
               </div>
               <Link href={`/projects/${p.id}`} className="button">Open →</Link>
             </div>
