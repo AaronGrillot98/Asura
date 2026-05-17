@@ -460,6 +460,9 @@ class ScanRequest(BaseModel):
     authorized_scope: str | None = None
     explicit_authorization: bool = False
     confirm_high_noise: bool = False
+    # IDs of NucleiTemplate records uploaded via /api/templates. Only applied
+    # to scanners that natively accept template files (currently: nuclei).
+    template_ids: list[str] = Field(default_factory=list)
 
 
 class FindingStatusPatch(BaseModel):
@@ -542,6 +545,34 @@ class AsyncScanResponse(BaseModel):
     backend: Literal["inline_thread", "rq"]
     poll_url: str
     message: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Custom Nuclei templates
+# ---------------------------------------------------------------------------
+
+
+class NucleiTemplate(BaseModel):
+    """User-uploaded Nuclei template.
+
+    The template content lives on disk under
+    `templates/<workspace_id>/<template_id>__<safe_filename>.yaml`; this
+    record is the index entry the API returns.
+    """
+
+    id: str
+    workspace_id: str = "workspace-demo"
+    filename: str
+    display_name: str
+    description: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    template_id: str | None = None  # the `id:` field inside the template
+    severity: str | None = None  # the `info.severity` value inside the template
+    info_name: str | None = None  # `info.name`
+    size_bytes: int
+    content_hash: str
+    uploaded_at: datetime
+    is_demo_data: bool = False
 
 
 class ProjectCreate(BaseModel):

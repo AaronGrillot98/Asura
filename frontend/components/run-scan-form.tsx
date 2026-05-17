@@ -1,9 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Play } from "lucide-react";
-import { startScan, startScanAsync, type Project, type ScannerRun, type StartScanRequest } from "@/lib/api";
+import {
+  listTemplates,
+  startScan,
+  startScanAsync,
+  type NucleiTemplate,
+  type Project,
+  type ScannerRun,
+  type StartScanRequest,
+} from "@/lib/api";
 
 const CORE_SCANNERS: { id: string; label: string; defaultMode: "passive" | "active" }[] = [
   // Core 10 — first-class engines
@@ -60,7 +68,28 @@ export function RunScanForm({
   const [explicitAuthorization, setExplicitAuthorization] = useState(false);
   const [confirmHighNoise, setConfirmHighNoise] = useState(false);
   const [runInBackground, setRunInBackground] = useState(false);
+  const [templates, setTemplates] = useState<NucleiTemplate[]>([]);
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+
+  const nucleiSelected = scanners.includes("nuclei");
+
+  // Load templates lazily once the user opens the form AND has nuclei selected.
+  useEffect(() => {
+    if (!open || !nucleiSelected || templates.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const next = await listTemplates();
+        if (!cancelled) setTemplates(next);
+      } catch {
+        // Don't fail the form if templates can't be fetched — just hide the picker.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, nucleiSelected, templates.length]);
 
   const toggleScanner = (id: string) => {
     setScanners((current) =>
@@ -90,6 +119,7 @@ export function RunScanForm({
       authorized_scope: authorizedScope.trim() || null,
       explicit_authorization: explicitAuthorization,
       confirm_high_noise: confirmHighNoise,
+      template_ids: nucleiSelected && selectedTemplateIds.length > 0 ? selectedTemplateIds : undefined,
     };
     setStatus({ kind: "running", message: `Running ${scanners.length} scanner(s)…` });
     try {
@@ -200,6 +230,58 @@ export function RunScanForm({
             Run in background — submit a job and poll progress on /jobs (recommended for long scans).
           </label>
         </div>
+
+        {nucleiSelected ? (
+          <fieldset style={{ border: "1px solid var(--border-1)", borderRadius: 8, padding: 10 }}>
+            <legend style={{ color: "var(--text-3)", fontSize: 12, padding: "0 6px" }}>
+              Custom Nuclei templates (optional)
+            </legend>
+            {templates.length === 0 ? (
+              <small style={{ color: "var(--text-3)" }}>
+                No custom templates uploaded yet. <a href="/templates">Upload one →</a>
+              </small>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {templates.map((t) => {
+                  const checked = selectedTemplateIds.includes(t.id);
+                  return (
+                    <label
+                      key={t.id}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 12,
+                        color: "var(--text-2)",
+                        background: checked ? "var(--bg-active)" : "var(--bg-3)",
+                        border: "1px solid var(--border-1)",
+                        padding: "4px 8px",
+                        borderRadius: 999,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() =>
+                          setSelectedTemplateIds((cur) =>
+                            checked ? cur.filter((id) => id !== t.id) : [...cur, t.id],
+                          )
+                        }
+                        style={{ margin: 0 }}
+                      />
+                      {t.display_name}
+                      {t.severity ? (
+                        <span style={{ color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          {t.severity}
+                        </span>
+                      ) : null}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </fieldset>
+        ) : null}
 
         {status.kind === "error" ? (
           <div style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", padding: "8px 12px", borderRadius: 8, fontSize: 13 }}>

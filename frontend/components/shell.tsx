@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import {
   Activity,
   Boxes,
+  FileCode,
   FileText,
   GitBranch,
   Home,
@@ -54,6 +55,7 @@ const NAV: NavSection[] = [
     label: "Settings",
     entries: [
       { href: "/arsenal", label: "Arsenal", icon: <Package size={16} /> },
+      { href: "/templates", label: "Nuclei Templates", icon: <FileCode size={16} /> },
       { href: "/audit", label: "Audit Log", icon: <ScrollText size={16} /> },
       { href: "/safety", label: "Safety Model", icon: <Radar size={16} /> },
     ],

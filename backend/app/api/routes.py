@@ -5,11 +5,12 @@ response shapes; new routes power the dashboard pages.
 """
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, File, Form, HTTPException, Query, Response, UploadFile
 
 from app.models.schemas import (
     ArsenalSummary,
@@ -21,6 +22,7 @@ from app.models.schemas import (
     Evidence,
     Finding,
     FindingStatusPatch,
+    NucleiTemplate,
     Pipeline,
     PipelineRunRequest,
     Project,
@@ -44,6 +46,7 @@ from app.services.job_runner import (
     run_scan_request_job,
 )
 from app.services.pipelines import list_pipelines
+from app.services.templates_service import TemplateValidationError, TemplatesService
 from app.security.blocked_capabilities import as_dicts as blocked_capabilities_dicts
 from app.security.scope_guard import decide_scope, validate_scan_scope
 from app.services.demo_store import RISK_TREND
@@ -682,6 +685,129 @@ def get_evidence(evidence_id: str) -> Evidence:
     return ev
 
 
+# ---------------------------------------------------------------------------
+# Custom Nuclei templates
+# ---------------------------------------------------------------------------
+
+
+_TEMPLATE_CONTAINER_MOUNT = "/asura-templates"
+
+
+def _nuclei_extras_for(template_ids: list[str]) -> tuple[list[str], list[tuple[str, str]], list[str]]:
+    """Resolve template_ids → (extra_args, extra_mounts, missing_ids).
+
+    extra_args appends `-t <path>` once per template; for the Docker path
+    we mount the workspace template directory read-only and rewrite each
+    path to the in-container mount point.
+    """
+    if not template_ids:
+        return [], [], []
+    service = TemplatesService(get_repos())
+    paths, missing = service.resolve_paths(template_ids)
+    if not paths:
+        return [], [], missing
+    workspace_dir = service.workspace_dir(
+        next((service.get(tid).workspace_id for tid in template_ids if service.get(tid) is not None), "workspace-demo")
+    )
+    extra_mounts = [(str(workspace_dir), _TEMPLATE_CONTAINER_MOUNT)]
+    extra_args: list[str] = []
+    for path in paths:
+        # The host path the local subprocess uses:
+        host_path = str(path)
+        # The in-container path the Docker runner uses. The bind-mount is
+        # the workspace dir, so the file lives at /asura-templates/<name>.
+        container_path = f"{_TEMPLATE_CONTAINER_MOUNT}/{path.name}"
+        # Local runs and Docker runs differ on this — we generate the
+        # local-friendly form here; the Docker argv builder rewrites it
+        # via the mount substitution it does for filesystem targets.
+        # For nuclei specifically we use the local path; the docker runner
+        # only knows to swap the *target* string when target_kind matches.
+        # To make templates work in both, we append two flag pairs: the
+        # local subprocess sees -t <host_path>; the Docker container, with
+        # the workspace dir mounted at /asura-templates, would not see
+        # /home/... so we instead pass the container_path and rely on the
+        # symmetric mount. This means local + Docker both need the same
+        # path string. We choose the container_path and bind the workspace
+        # at that mount on BOTH paths via extra_mounts (Docker handles it;
+        # the local runner ignores extra_mounts since the file exists on
+        # disk at host_path). The user's local nuclei would also expect a
+        # real path; to keep both working we just pass host_path here and
+        # let the Docker runner swap it via the mount-aware rewriter.
+        extra_args.extend(["-t", host_path])
+    return extra_args, extra_mounts, missing
+
+
+def _rewrite_for_docker(extra_args: list[str], host_dir: str) -> list[str]:
+    """Swap any -t <host_dir>/foo.yaml argument to -t /asura-templates/foo.yaml."""
+    out: list[str] = []
+    prefix = host_dir.rstrip("/\\") + os.sep
+    for arg in extra_args:
+        if arg.startswith(prefix):
+            out.append(f"{_TEMPLATE_CONTAINER_MOUNT}/{os.path.basename(arg)}")
+        else:
+            out.append(arg)
+    return out
+
+
+@router.get("/templates", response_model=list[NucleiTemplate])
+def list_templates() -> list[NucleiTemplate]:
+    service = TemplatesService(get_repos())
+    return service.list()
+
+
+@router.post("/templates", response_model=NucleiTemplate, status_code=201)
+async def upload_template(
+    file: UploadFile = File(...),
+    description: str | None = Form(default=None),
+    tags: str | None = Form(default=None),
+) -> NucleiTemplate:
+    """Upload a custom Nuclei template (`.yaml`).
+
+    Validates that the file parses as YAML and has a top-level `id` —
+    enough to reject obviously-bad uploads without locking out templates
+    that just don't match the full Nuclei schema yet.
+    """
+    service = TemplatesService(get_repos())
+    content = await file.read()
+    tag_list = [t.strip() for t in (tags or "").split(",") if t.strip()]
+    try:
+        return service.upload(
+            workspace_id="workspace-demo",
+            filename=file.filename or "template.yaml",
+            content=content,
+            description=description,
+            tags=tag_list,
+        )
+    except TemplateValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/templates/{template_id}", response_model=NucleiTemplate)
+def get_template(template_id: str) -> NucleiTemplate:
+    service = TemplatesService(get_repos())
+    record = service.get(template_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return record
+
+
+@router.get("/templates/{template_id}/content")
+def get_template_content(template_id: str) -> Response:
+    service = TemplatesService(get_repos())
+    content = service.read_content(template_id)
+    if content is None:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return Response(content=content, media_type="application/x-yaml")
+
+
+@router.delete("/templates/{template_id}", status_code=204, response_class=Response)
+def delete_template(template_id: str) -> Response:
+    service = TemplatesService(get_repos())
+    if not service.delete(template_id):
+        raise HTTPException(status_code=404, detail="Template not found")
+    return Response(status_code=204)
+
+
 @router.post("/scans", response_model=list[ScannerRun])
 def start_scan(request: ScanRequest) -> list[ScannerRun]:
     repos = get_repos()
@@ -710,8 +836,18 @@ def start_scan(request: ScanRequest) -> list[ScannerRun]:
         confirm_high_noise=request.confirm_high_noise,
         audit_repo=repos.audit,
     )
+    # Templates apply only to scanners that natively accept them (currently
+    # nuclei). Resolve once and pass extras into the runner per-scanner.
+    nuclei_args, nuclei_mounts, missing_template_ids = _nuclei_extras_for(request.template_ids)
+    if missing_template_ids:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown template id(s): {', '.join(missing_template_ids)}",
+        )
+
     runs: list[ScannerRun] = []
     for scanner in request.scanners:
+        is_nuclei = scanner == "nuclei"
         run = run_scanner(
             project_id=request.project_id,
             scanner=scanner,
@@ -719,6 +855,8 @@ def start_scan(request: ScanRequest) -> list[ScannerRun]:
             mode=request.mode.value,
             authorized=request.explicit_authorization,
             repos=repos,
+            extra_args=nuclei_args if is_nuclei else None,
+            extra_mounts=nuclei_mounts if is_nuclei else None,
         )
         repos.runs.add(run)
         runs.append(run)

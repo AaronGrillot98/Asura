@@ -332,6 +332,7 @@ export type StartScanRequest = {
   authorized_scope?: string | null;
   explicit_authorization?: boolean;
   confirm_high_noise?: boolean;
+  template_ids?: string[];
 };
 
 export async function startScan(payload: StartScanRequest): Promise<ScannerRun[]> {
@@ -563,6 +564,63 @@ export async function runPipeline(payload: PipelineRunRequest): Promise<AsyncSca
     throw new Error(detail || `POST /api/pipelines/run returned ${response.status}`);
   }
   return response.json();
+}
+
+// ---- Custom Nuclei templates ----
+
+export type NucleiTemplate = {
+  id: string;
+  workspace_id: string;
+  filename: string;
+  display_name: string;
+  description?: string | null;
+  tags: string[];
+  template_id?: string | null;
+  severity?: string | null;
+  info_name?: string | null;
+  size_bytes: number;
+  content_hash: string;
+  uploaded_at: string;
+  is_demo_data?: boolean;
+};
+
+export async function listTemplates(): Promise<NucleiTemplate[]> {
+  return getJson<NucleiTemplate[]>(`/api/templates`);
+}
+
+export async function uploadTemplate(
+  file: File,
+  meta?: { description?: string; tags?: string },
+): Promise<NucleiTemplate> {
+  const body = new FormData();
+  body.append("file", file);
+  if (meta?.description) body.append("description", meta.description);
+  if (meta?.tags) body.append("tags", meta.tags);
+  const response = await fetch(`${API_URL}/api/templates`, {
+    method: "POST",
+    body,
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `POST /api/templates returned ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function deleteTemplate(id: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/templates/${id}`, {
+    method: "DELETE",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `DELETE /api/templates/${id} returned ${response.status}`);
+  }
+}
+
+export function templateContentUrl(id: string): string {
+  return `${API_URL}/api/templates/${id}/content`;
 }
 
 export const ASURA_API_URL = API_URL;

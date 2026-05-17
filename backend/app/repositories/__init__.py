@@ -17,6 +17,7 @@ from app.models.schemas import (
     AuthorizedScope,
     Evidence,
     Finding,
+    NucleiTemplate,
     Project,
     RemediationTask,
     Report,
@@ -50,6 +51,7 @@ class Repos:
     reports: InMemoryRepository[Report] = field(default_factory=lambda: InMemoryRepository[Report]())
     schedules: InMemoryRepository[ScanSchedule] = field(default_factory=lambda: InMemoryRepository[ScanSchedule]())
     jobs: InMemoryRepository[ScanJob] = field(default_factory=lambda: InMemoryRepository[ScanJob]())
+    templates: InMemoryRepository[NucleiTemplate] = field(default_factory=lambda: InMemoryRepository[NucleiTemplate]())
 
 
 _REPOS: Optional[Repos] = None

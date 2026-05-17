@@ -75,6 +75,10 @@ def build_command(scanner: str, target: str, mode: str) -> list[str]:
     return [part.replace("{{target}}", target) for part in command]
 
 
+# The shape of an in-container mount: (host_path, container_path).
+ExtraMount = tuple[str, str]
+
+
 def _new_run(
     project_id: str,
     scanner: str,
@@ -198,17 +202,35 @@ def _build_docker_argv(
     tool,
     target: str,
     inner_argv: list[str],
+    extra_mounts: list[ExtraMount] | None = None,
 ) -> tuple[list[str], str]:
-    """Return (docker argv, target-as-used-in-command) for a single scan."""
+    """Return (docker argv, target-as-used-in-command) for a single scan.
+
+    `extra_mounts` lets callers attach additional read-only bind-mounts
+    (e.g. a custom-Nuclei-templates directory) without the runner having to
+    know about each one. Each mount becomes `-v <host>:<container>:ro`.
+
+    Any inner-argv value that lives under one of those host directories
+    is rewritten to its in-container path — that's how custom Nuclei
+    templates work the same way regardless of execution path.
+    """
     target_kind = (tool.target_kind or "url")
     mount_args: list[str] = []
     final_target = target
     if target_kind in {"filesystem", "mixed"} and _looks_like_filesystem_target(target):
         mount_args, final_target = _docker_mount_args(target)
 
+    for host, container in extra_mounts or []:
+        mount_args.extend(["-v", f"{host}:{container}:ro"])
+
     # Substitute the rewritten target inside the inner argv where the
     # registry placeholder used to live.
     rewritten_inner = [arg.replace(target, final_target) if target != final_target else arg for arg in inner_argv]
+
+    # Translate host paths under any extra_mount to their in-container path.
+    if extra_mounts:
+        rewritten_inner = _rewrite_paths_for_mounts(rewritten_inner, extra_mounts)
+
     # Drop the executable from inner_argv if it matches the tool executable;
     # many official images already set ENTRYPOINT.
     if rewritten_inner and tool.executable and rewritten_inner[0] == tool.executable:
@@ -216,6 +238,32 @@ def _build_docker_argv(
 
     argv = ["docker", "run", "--rm", "-i"] + mount_args + [tool.docker_image] + rewritten_inner
     return argv, final_target
+
+
+def _rewrite_paths_for_mounts(argv: list[str], mounts: list[ExtraMount]) -> list[str]:
+    """Rewrite any argv element that begins with a mount's host_dir to its
+    in-container path. Case-insensitive on Windows because driver letters
+    and forward/back slashes mix freely in subprocess.run argv."""
+    out: list[str] = []
+    normalised_mounts = []
+    for host, container in mounts:
+        host_norm = os.path.normpath(host).rstrip(os.sep) + os.sep
+        normalised_mounts.append((host_norm, host_norm.lower(), container.rstrip("/")))
+    for arg in argv:
+        rewritten = arg
+        # We don't want to corrupt URLs that happen to start with something
+        # that contains the mount substring — only rewrite paths that look
+        # like absolute filesystem paths.
+        candidate = os.path.normpath(arg) if (arg and not arg.startswith(("-", "http://", "https://"))) else None
+        if candidate is not None:
+            candidate_lower = candidate.lower() + os.sep
+            for _host_norm, host_lower, container in normalised_mounts:
+                if candidate_lower.startswith(host_lower):
+                    # The file's basename is its in-container name.
+                    rewritten = f"{container}/{os.path.basename(candidate)}"
+                    break
+        out.append(rewritten)
+    return out
 
 
 def _persist_results(
@@ -420,6 +468,8 @@ def run_scanner(
     repos=None,
     force_demo: Optional[bool] = None,
     force_docker: Optional[bool] = None,
+    extra_args: Optional[list[str]] = None,
+    extra_mounts: Optional[list[ExtraMount]] = None,
 ) -> ScannerRun:
     """Execute a registered scanner.
 
@@ -466,10 +516,15 @@ def run_scanner(
     tool, docker_path = _docker_available_for(scanner)
     local_path = _local_binary_path(scanner)
     inner_argv = build_command(scanner, target, mode)
+    if extra_args:
+        inner_argv = inner_argv + list(extra_args)
 
     # Path selection.
     if prefer_docker and docker_path and tool is not None:
-        argv, _ = _build_docker_argv(tool=tool, target=target, inner_argv=inner_argv)
+        argv, _ = _build_docker_argv(
+            tool=tool, target=target, inner_argv=inner_argv,
+            extra_mounts=extra_mounts,
+        )
         return _execute_and_parse(
             repos=repos, project_id=project_id, scanner=scanner, target=target,
             mode=mode, args=argv,
@@ -482,7 +537,10 @@ def run_scanner(
             path_label=f"via local binary {local_path}",
         )
     if docker_path and tool is not None:
-        argv, _ = _build_docker_argv(tool=tool, target=target, inner_argv=inner_argv)
+        argv, _ = _build_docker_argv(
+            tool=tool, target=target, inner_argv=inner_argv,
+            extra_mounts=extra_mounts,
+        )
         return _execute_and_parse(
             repos=repos, project_id=project_id, scanner=scanner, target=target,
             mode=mode, args=argv,
