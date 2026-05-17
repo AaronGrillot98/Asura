@@ -468,6 +468,10 @@ class ScanRequest(BaseModel):
     wordlist: str | None = None
     # Cloud provider for prowler / scoutsuite (e.g. "aws", "azure", "gcp").
     provider: str | None = None
+    # Optional AuthProfile id. Applied to scanners that accept custom headers
+    # (currently nuclei + httpx). The runner injects the right `-H` flags;
+    # secrets never travel through the API back to the client.
+    auth_profile_id: str | None = None
 
 
 class FindingStatusPatch(BaseModel):
@@ -550,6 +554,48 @@ class AsyncScanResponse(BaseModel):
     backend: Literal["inline_thread", "rq"]
     poll_url: str
     message: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Auth profiles — credentials injected into scanner runs via -H flags.
+# Secrets never leave the backend; the API only exposes a 4-char preview.
+# ---------------------------------------------------------------------------
+
+AuthType = Literal["bearer", "basic", "header", "cookie"]
+
+
+class AuthProfile(BaseModel):
+    """Stored auth profile.
+
+    The actual credential values (token / password / header value) are
+    *never* returned by API responses. The on-disk form is Fernet-encrypted
+    and only decrypted by the runner at scan time. `credential_preview` is
+    the last 4 chars so the UI can confirm "which one did I save?".
+    """
+
+    id: str
+    name: str
+    workspace_id: str = "workspace-demo"
+    auth_type: AuthType
+    target_match: str | None = None
+    description: str | None = None
+    credential_preview: str
+    created_at: datetime
+    is_demo_data: bool = False
+
+
+class AuthProfileCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    auth_type: AuthType
+    target_match: str | None = Field(default=None, max_length=400)
+    description: str | None = Field(default=None, max_length=400)
+    # Per-type secret fields. Validated server-side.
+    token: str | None = None        # bearer
+    username: str | None = None     # basic
+    password: str | None = None     # basic
+    header_name: str | None = None  # header
+    header_value: str | None = None # header
+    cookie: str | None = None       # cookie
 
 
 # ---------------------------------------------------------------------------

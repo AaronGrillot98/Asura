@@ -18,3 +18,5 @@ reports/*
 !reports/.gitkeep
 templates/*
 !templates/.gitkeep
+auth/*
+!auth/.gitkeep

@@ -14,6 +14,7 @@ from app.models.schemas import (
     Asset,
     AttackPath,
     AuditLog,
+    AuthProfile,
     AuthorizedScope,
     Evidence,
     Finding,
@@ -52,6 +53,7 @@ class Repos:
     schedules: InMemoryRepository[ScanSchedule] = field(default_factory=lambda: InMemoryRepository[ScanSchedule]())
     jobs: InMemoryRepository[ScanJob] = field(default_factory=lambda: InMemoryRepository[ScanJob]())
     templates: InMemoryRepository[NucleiTemplate] = field(default_factory=lambda: InMemoryRepository[NucleiTemplate]())
+    auth_profiles: InMemoryRepository[AuthProfile] = field(default_factory=lambda: InMemoryRepository[AuthProfile]())
 
 
 _REPOS: Optional[Repos] = None

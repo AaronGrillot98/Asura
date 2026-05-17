@@ -4,9 +4,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Play } from "lucide-react";
 import {
+  listAuthProfiles,
   listTemplates,
   startScan,
   startScanAsync,
+  type AuthProfile,
   type NucleiTemplate,
   type Project,
   type ScannerRun,
@@ -84,9 +86,13 @@ export function RunScanForm({
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
   const [wordlist, setWordlist] = useState("");
   const [provider, setProvider] = useState("aws");
+  const [authProfiles, setAuthProfiles] = useState<AuthProfile[]>([]);
+  const [authProfileId, setAuthProfileId] = useState<string>("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const nucleiSelected = scanners.includes("nuclei");
+  const httpxSelected = scanners.includes("httpx");
+  const authCapableSelected = nucleiSelected || httpxSelected;
   const fuzzerSelected = scanners.some((s) => FUZZER_IDS.has(s));
   const providerSelected = scanners.some((s) => PROVIDER_IDS.has(s));
 
@@ -106,6 +112,23 @@ export function RunScanForm({
       cancelled = true;
     };
   }, [open, nucleiSelected, templates.length]);
+
+  // Load auth profiles lazily when an auth-capable scanner is selected.
+  useEffect(() => {
+    if (!open || !authCapableSelected || authProfiles.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const next = await listAuthProfiles();
+        if (!cancelled) setAuthProfiles(next);
+      } catch {
+        // ignore — picker hidden
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, authCapableSelected, authProfiles.length]);
 
   const toggleScanner = (id: string) => {
     setScanners((current) =>
@@ -145,6 +168,7 @@ export function RunScanForm({
       template_ids: nucleiSelected && selectedTemplateIds.length > 0 ? selectedTemplateIds : undefined,
       wordlist: fuzzerSelected ? wordlist.trim() || undefined : undefined,
       provider: providerSelected ? provider.trim() || undefined : undefined,
+      auth_profile_id: authCapableSelected && authProfileId ? authProfileId : undefined,
     };
     setStatus({ kind: "running", message: `Running ${scanners.length} scanner(s)…` });
     try {
@@ -295,6 +319,32 @@ export function RunScanForm({
               Prowler requires valid read-only cloud credentials in the backend
               environment before this will produce findings.
             </small>
+          </fieldset>
+        ) : null}
+
+        {authCapableSelected ? (
+          <fieldset style={{ border: "1px solid var(--border-1)", borderRadius: 8, padding: 10 }}>
+            <legend style={{ color: "var(--text-3)", fontSize: 12, padding: "0 6px" }}>
+              Auth profile (optional) — injected as <code className="inlineCode">-H</code> flags
+            </legend>
+            {authProfiles.length === 0 ? (
+              <small style={{ color: "var(--text-3)" }}>
+                No auth profiles yet. <a href="/auth-profiles">Create one →</a>
+              </small>
+            ) : (
+              <select
+                value={authProfileId}
+                onChange={(e) => setAuthProfileId(e.target.value)}
+                style={{ fontSize: 13, height: 38, width: "100%" }}
+              >
+                <option value="">(no auth — scan as unauthenticated)</option>
+                {authProfiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} · {p.auth_type} · {p.credential_preview}
+                  </option>
+                ))}
+              </select>
+            )}
           </fieldset>
         ) : null}
 

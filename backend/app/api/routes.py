@@ -17,6 +17,8 @@ from app.models.schemas import (
     AsyncScanResponse,
     AttackPath,
     AuditLog,
+    AuthProfile,
+    AuthProfileCreate,
     AuthorizedScope,
     DashboardSummary,
     Evidence,
@@ -47,6 +49,7 @@ from app.services.job_runner import (
 )
 from app.services.pipelines import list_pipelines
 from app.services.templates_service import TemplateValidationError, TemplatesService
+from app.services.auth_profile_service import AuthProfileService
 from app.security.blocked_capabilities import as_dicts as blocked_capabilities_dicts
 from app.security.scope_guard import decide_scope, validate_scan_scope
 from app.services.demo_store import RISK_TREND
@@ -808,6 +811,62 @@ def delete_template(template_id: str) -> Response:
     return Response(status_code=204)
 
 
+# ---------------------------------------------------------------------------
+# Auth profiles (Fernet-encrypted; secrets never returned by the API)
+# ---------------------------------------------------------------------------
+
+
+def _auth_extras_for(scanner: str, profile_id: Optional[str]) -> tuple[list[str], Optional[str]]:
+    """Return (extra_args, error_message). Empty args when no profile or
+    when the scanner doesn't accept custom headers."""
+    if not profile_id:
+        return [], None
+    service = AuthProfileService(get_repos())
+    profile = service.get(profile_id)
+    if profile is None:
+        return [], f"Unknown auth profile: {profile_id}"
+    # Only scanners that take a `-H` flag get auth applied. Others ignore it.
+    if scanner not in {"nuclei", "httpx"}:
+        return [], None
+    headers = service.decrypted_headers(profile_id)
+    args: list[str] = []
+    for name, value in headers:
+        args.extend(["-H", f"{name}: {value}"])
+    return args, None
+
+
+@router.get("/auth-profiles", response_model=list[AuthProfile])
+def list_auth_profiles() -> list[AuthProfile]:
+    service = AuthProfileService(get_repos())
+    return service.list()
+
+
+@router.post("/auth-profiles", response_model=AuthProfile, status_code=201)
+def create_auth_profile(request: AuthProfileCreate) -> AuthProfile:
+    service = AuthProfileService(get_repos())
+    try:
+        return service.create(workspace_id="workspace-demo", payload=request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/auth-profiles/{profile_id}", response_model=AuthProfile)
+def get_auth_profile(profile_id: str) -> AuthProfile:
+    service = AuthProfileService(get_repos())
+    profile = service.get(profile_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Auth profile not found")
+    return profile
+
+
+@router.delete("/auth-profiles/{profile_id}", status_code=204, response_class=Response)
+def delete_auth_profile(profile_id: str) -> Response:
+    service = AuthProfileService(get_repos())
+    if not service.delete(profile_id):
+        raise HTTPException(status_code=404, detail="Auth profile not found")
+    return Response(status_code=204)
+
+
 @router.post("/scans", response_model=list[ScannerRun])
 def start_scan(request: ScanRequest) -> list[ScannerRun]:
     repos = get_repos()
@@ -856,6 +915,14 @@ def start_scan(request: ScanRequest) -> list[ScannerRun]:
     runs: list[ScannerRun] = []
     for scanner in request.scanners:
         is_nuclei = scanner == "nuclei"
+        # Per-scanner auth header injection (nuclei + httpx).
+        auth_args, auth_err = _auth_extras_for(scanner, request.auth_profile_id)
+        if auth_err:
+            raise HTTPException(status_code=400, detail=auth_err)
+        # Compose extras: template paths/mounts (nuclei only) + auth headers.
+        scanner_extras = list(auth_args)
+        if is_nuclei:
+            scanner_extras = list(nuclei_args) + scanner_extras
         run = run_scanner(
             project_id=request.project_id,
             scanner=scanner,
@@ -863,7 +930,7 @@ def start_scan(request: ScanRequest) -> list[ScannerRun]:
             mode=request.mode.value,
             authorized=request.explicit_authorization,
             repos=repos,
-            extra_args=nuclei_args if is_nuclei else None,
+            extra_args=scanner_extras or None,
             extra_mounts=nuclei_mounts if is_nuclei else None,
             substitutions=substitutions or None,
         )

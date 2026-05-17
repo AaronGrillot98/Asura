@@ -10,6 +10,7 @@ import {
   FileText,
   GitBranch,
   Home,
+  KeyRound,
   Layers,
   Package,
   Radar,
@@ -56,6 +57,7 @@ const NAV: NavSection[] = [
     entries: [
       { href: "/arsenal", label: "Arsenal", icon: <Package size={16} /> },
       { href: "/templates", label: "Nuclei Templates", icon: <FileCode size={16} /> },
+      { href: "/auth-profiles", label: "Auth Profiles", icon: <KeyRound size={16} /> },
       { href: "/audit", label: "Audit Log", icon: <ScrollText size={16} /> },
       { href: "/safety", label: "Safety Model", icon: <Radar size={16} /> },
     ],

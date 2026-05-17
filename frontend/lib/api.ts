@@ -337,6 +337,9 @@ export type StartScanRequest = {
   wordlist?: string | null;
   // Cloud provider for prowler / scoutsuite (e.g. "aws", "azure", "gcp").
   provider?: string | null;
+  // Optional AuthProfile id; the runner injects the appropriate `-H` flags
+  // for scanners that accept them (currently nuclei + httpx).
+  auth_profile_id?: string | null;
 };
 
 export async function startScan(payload: StartScanRequest): Promise<ScannerRun[]> {
@@ -568,6 +571,64 @@ export async function runPipeline(payload: PipelineRunRequest): Promise<AsyncSca
     throw new Error(detail || `POST /api/pipelines/run returned ${response.status}`);
   }
   return response.json();
+}
+
+// ---- Auth profiles (credentials injected as -H flags) ----
+
+export type AuthType = "bearer" | "basic" | "header" | "cookie";
+
+export type AuthProfile = {
+  id: string;
+  name: string;
+  workspace_id: string;
+  auth_type: AuthType;
+  target_match?: string | null;
+  description?: string | null;
+  credential_preview: string;
+  created_at: string;
+  is_demo_data?: boolean;
+};
+
+export type AuthProfileCreate = {
+  name: string;
+  auth_type: AuthType;
+  target_match?: string | null;
+  description?: string | null;
+  token?: string | null;       // bearer
+  username?: string | null;    // basic
+  password?: string | null;    // basic
+  header_name?: string | null; // header
+  header_value?: string | null; // header
+  cookie?: string | null;      // cookie
+};
+
+export async function listAuthProfiles(): Promise<AuthProfile[]> {
+  return getJson<AuthProfile[]>(`/api/auth-profiles`);
+}
+
+export async function createAuthProfile(payload: AuthProfileCreate): Promise<AuthProfile> {
+  const response = await fetch(`${API_URL}/api/auth-profiles`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `POST /api/auth-profiles returned ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function deleteAuthProfile(id: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/auth-profiles/${id}`, {
+    method: "DELETE",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `DELETE returned ${response.status}`);
+  }
 }
 
 // ---- Custom Nuclei templates ----
