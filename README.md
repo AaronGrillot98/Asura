@@ -1,16 +1,19 @@
 <div align="center">
 
+<img src="docs/asura-banner.svg" alt="Asura — self-hosted security command center" width="100%"/>
+
 # Asura
 
 **Self-hosted security command center for authorized testing.**
-Orchestrates 26 real scanners. Preserves evidence. Correlates attack paths. Refuses to pretend a scan happened.
+Orchestrates 44 real scanners. Preserves evidence. Correlates attack paths. Refuses to pretend a scan happened.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Status: active](https://img.shields.io/badge/status-active%20development-orange.svg)](#roadmap)
-[![Backend tests](https://img.shields.io/badge/backend%20tests-139%20passing-brightgreen.svg)](backend/tests)
+[![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
+[![Status: active](https://img.shields.io/badge/status-active%20development-gold.svg)](#roadmap)
+[![Backend tests](https://img.shields.io/badge/backend%20tests-183%20passing-brightgreen.svg)](backend/tests)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
-[![Tools](https://img.shields.io/badge/wired%20scanners-26%20of%2090-blue.svg)](#wired-scanners)
+[![Tools](https://img.shields.io/badge/wired%20scanners-44%20of%2094-purple.svg)](#wired-scanners)
+[![Persistence](https://img.shields.io/badge/persistence-SQLite%20%7C%20Postgres-gold.svg)](#persistence)
 
 </div>
 
@@ -31,7 +34,7 @@ Orchestrates 26 real scanners. Preserves evidence. Correlates attack paths. Refu
                  │              ▼                                        │
                  │       Evidence Vault (sha256, never overwrite)        │
                  │              ▼                                        │
-                 │       Repositories (Findings, Runs, Audit, Jobs)      │
+                 │       Repositories (in-memory · SQLite · Postgres)    │
                  │              ▼                                        │
                  │       PentestBrain  ─▶  ranks · dedupes · correlates  │
                  │              ▼                                        │
@@ -42,12 +45,14 @@ Orchestrates 26 real scanners. Preserves evidence. Correlates attack paths. Refu
 
 ## What it does
 
-- **Runs real scanners** — 26 are wired end-to-end today (Nmap, Nuclei, Semgrep, Trivy, Gitleaks, OSV-Scanner, Checkov, OWASP ZAP, Syft, Grype, plus 10 language-specific tools, plus 6 ProjectDiscovery recon tools, plus a generic SARIF importer for CodeQL).
-- **Zero local install needed** — 20 of the 26 ship with canonical Docker images. If a binary isn't on PATH, Asura runs `docker run --rm <image>` automatically. Set `ASURA_PREFER_DOCKER=1` to always prefer the container path.
+- **Runs real scanners** — 44 are wired end-to-end today across core engines, AppSec language packs, recon, fuzzers, K8s/cloud, and SARIF importers. The other ~50 are registered in the catalog with truthful state (`planned` / `reference` / `analyzer` / `importer` / `blocked`).
+- **Zero local install needed** — most wired tools ship with canonical Docker images. If a binary isn't on PATH, Asura runs `docker run --rm <image>` automatically. Set `ASURA_PREFER_DOCKER=1` to always prefer the container path.
 - **Background jobs + pipelines** — `POST /api/scans/async` returns immediately with a job id; poll `/api/jobs/{id}` for progress. Three preset pipelines (`passive-recon`, `code-audit`, `container-audit`) chain multiple scanners with optional asset-passing between stages.
 - **Evidence-first** — every finding carries at least one `Evidence` record with a sha256 content hash and the exact argv used. Raw payloads land at `evidence/<workspace>/<project>/<scan_id>/<tool>.json` and are never overwritten.
 - **Scope-gated** — the safety guard rejects scans against private IPs without `owned_internal=True`, requires explicit authorization for active/lab modes, blocks high-risk tools outside lab mode, and writes one `AuditLog` row per decision (allow or block).
 - **Deterministic reasoning** — `PentestBrain` ranks, deduplicates by fingerprint, correlates findings into attack-path hypotheses, and generates remediation plans. **Every claim cites the evidence IDs that produced it** — no hallucinated vulns.
+- **Persistence built-in** — flip `ASURA_USE_SQL=1` for SQLite or Postgres. Projects, scans, findings, evidence, runs, audit logs, jobs, and remediations survive restarts behind the same Repository interface tests already use.
+- **Authenticated scanning** — Fernet-encrypted auth profiles (bearer / basic / header / cookie) are injected into Nuclei + HTTPx + ZAP at runtime. Custom Nuclei templates uploaded through the UI are content-hashed and stored on disk.
 - **Reports you can hand to a stakeholder** — Markdown + JSON with engagement summary, scope statement, authorization statement, methodology, tools used, executive summary, risk overview, attack paths, findings by severity, evidence references, remediation roadmap, and a safety statement.
 
 ## What it is *not*
@@ -62,7 +67,8 @@ Asura is not an unauthorized hacking tool, malware framework, phishing kit, cred
 | Scan a container image without manually running 4 different tools | The `container-audit` pipeline: Syft (SBOM) → Grype (vulns) + Trivy (vulns + misconfig + secrets). |
 | Do passive recon on an authorized scope | The `passive-recon` pipeline: Subfinder → HTTPx (probes each discovered subdomain). Asset chaining is automatic. |
 | Run a long scan without blocking your browser tab | "Run in background" on the Run-scan form (or `POST /api/scans/async`). Tracks progress at `/jobs/{id}`. |
-| Use Asura on a fresh machine without installing nmap / nuclei / trivy / etc. | Install Docker. Asura's runner auto-falls-back to the registered image for every wired scanner. |
+| Use Asura on a fresh machine without installing 40+ binaries | Install Docker. Asura's runner auto-falls-back to the registered image for every wired scanner. |
+| Scan past a login / behind a bearer token | Save an auth profile under `/auth-profiles`; pick it from the Run-scan form. Credentials never leave disk in plaintext. |
 | Hand a customer a deliverable | `POST /api/reports/{project_id}` returns Markdown + JSON with 14 sections including a scope + authorization + safety statement. |
 | Prove every claim about a finding is grounded in real data | Every `Finding.evidence[i]` carries a sha256 `content_hash` of the raw scanner output; every `PentestBrain` claim returns `cited_evidence_ids`. |
 
@@ -98,7 +104,7 @@ Open <http://localhost:3000>. Backend at <http://localhost:8000/docs>.
 pipx install semgrep
 
 # Option B — don't install anything; Asura will auto-run scanners in Docker
-# (most of the wired 20 have canonical images registered)
+# (most of the wired 44 have canonical images registered)
 ```
 
 Then on the dashboard:
@@ -135,16 +141,20 @@ The response contains a `job_id`. Poll `/api/jobs/{job_id}` for progress.
 
 ## Dashboard tour
 
+19 routes ship today, all behind the same dark purple/gold theme:
+
 | Route | What you see |
 |-------|--------------|
 | `/` | Command Center: hero metrics, risk trend chart, coverage-by-domain grid, most-dangerous attack path, "fix these first", scanner health, brain reasoning, top findings, quick links. |
-| `/projects` | Workspace projects with status dots; **New project** opens a wizard for scope rules + grantor. |
-| `/projects/{id}` | Per-project dashboard with inline targets editor + Run scan + Delete. |
-| `/jobs` | Background job queue with status, progress %, runs produced, findings created. |
+| `/projects` · `/projects/{id}` · `/projects/new` | Workspace projects with status dots; wizard for scope rules + grantor; per-project dashboard with inline targets editor + Run scan + Delete. |
+| `/scans` · `/scans/{id}` | Scanner run history with status, args, exit code, evidence link, scope decision. |
+| `/jobs` · `/jobs/{id}` | Background job queue with status, progress %, runs produced, findings created. |
 | `/pipelines` | Preset chains with "Run pipeline" forms inline. |
-| `/findings` and `/findings/{id}` | Filterable table; Evidence Drawer with raw JSON, content hash, command metadata. |
-| `/attack-paths/{id}` | xyflow graph of nodes/edges + remediation roadmap. |
+| `/findings` · `/findings/{id}` | Filterable table; Evidence Drawer with raw JSON, content hash, command metadata. |
+| `/attack-paths` · `/attack-paths/{id}` | xyflow graph of nodes/edges + remediation roadmap. |
 | `/arsenal` | Catalog of 94 registered tools with status dots, install badges, lab-only markers. |
+| `/templates` | Custom Nuclei template upload + content-hashed registry. |
+| `/auth-profiles` | Fernet-encrypted credentials for authenticated scanning (bearer / basic / header / cookie). |
 | `/audit` | Every scope decision (allow / block) with timestamp + reason. |
 | `/safety` | The blocked-capability list — pulled live from `/api/safety/blocked`. |
 | `/reports` | Markdown + JSON report downloads. |
@@ -159,9 +169,11 @@ Press **`/`** anywhere to open the global search palette (also `Ctrl/Cmd+K`). Se
 | AppSec / language (10) | bandit · pip-audit · npm-audit · cargo-audit · govulncheck · gosec · brakeman · eslint-security · bearer · trufflehog |
 | Recon — dedicated (3) | subfinder · httpx · naabu |
 | Recon — shared discovery (12) | amass · dnsx · katana · gau · waybackurls · hakrawler · webanalyze · whatweb · wafw00f · tlsx · shuffledns · assetfinder |
-| Generic | SARIF (CodeQL + any SARIF-emitting tool) |
+| Web fuzzers (4) | ffuf · gobuster · dirsearch · sqlmap |
+| K8s / cloud (4) | kube-bench · kube-score · kubescape · prowler |
+| Importers (1) | SARIF (CodeQL + any SARIF-emitting tool) |
 
-Plus ~65 more registered in the catalog (`/arsenal`) as `planned`, `reference`, `analyzer`, `importer`, or `blocked` — visible with truthful state, intentionally not runnable until their parsers land.
+**44 wired, 94 in the catalog.** The remaining ~50 are visible under `/arsenal` with truthful state (`planned` / `reference` / `analyzer` / `importer` / `blocked`) — intentionally not runnable until their parsers land.
 
 ## Safety model
 
@@ -177,13 +189,14 @@ See [docs/SAFETY_MODEL.md](docs/SAFETY_MODEL.md) for the complete contract.
 
 ```text
 frontend/  Next.js 15 (App Router) · React 19 · @xyflow/react · recharts
-           Theme-aware design tokens, sidebar with section labels, command palette (/)
+           Purple/black/gold theme, sidebar with section labels, command palette (/)
 
-backend/   FastAPI · Pydantic 2 · Python 3.11+
+backend/   FastAPI · Pydantic 2 · SQLAlchemy 2 · Python 3.11+
            app/
              api/routes.py            HTTP surface
              models/schemas.py        Domain models (Pydantic)
-             repositories/            In-memory Repository[T] (SQL impl pending)
+             db/                      SQLAlchemy engine, ORM rows, init_db()
+             repositories/            Repository[T] — in-memory + SQL impls
              security/                ScopeGuard, BLOCKED_CAPABILITIES, private-network gate
              services/
                runner.py              Decision tree: demo / docker / local subprocess
@@ -194,9 +207,13 @@ backend/   FastAPI · Pydantic 2 · Python 3.11+
                job_queue.py           Inline-thread queue (RQ opt-in)
                job_runner.py          Single-scan + multi-stage pipeline callbacks
                pipelines.py           Preset pipeline registry
+               templates_service.py   Custom Nuclei template registry
+               auth_profile_service.py Fernet-encrypted credential store
                reporting.py           Markdown + JSON report builder
 
 evidence/  Raw scanner output, content-hashed, never overwritten
+templates/ Custom Nuclei templates with sha256 verification
+auth/      Fernet-encrypted auth profiles (never logged in cleartext)
 reports/   Generated reports
 ```
 
@@ -233,24 +250,35 @@ the demo project is missing, so restarts are idempotent. Templates and
 auth profiles keep their own encrypted file-system storage independent of
 this toggle (see `templates/` and `auth/`).
 
-Alembic migrations are roadmapped for when the schema starts evolving;
-the current build uses `Base.metadata.create_all()` since every field
-that isn't an indexed query column lives in a JSON `payload` column.
+The schema uses an indexed-column + JSON-payload pattern so new
+optional Pydantic fields don't need a migration — they live inside the
+JSON column. When you start indexing on a new field, Alembic takes
+over: set `ASURA_USE_ALEMBIC=1` to make `init_db()` run
+`alembic upgrade head` instead of `create_all`, or run the CLI:
+
+```bash
+cd backend
+py scripts/migrate.py upgrade       # upgrade to head
+py scripts/migrate.py current       # show recorded revision
+py scripts/migrate.py history       # show full revision history
+```
+
+See [docs/MIGRATIONS.md](docs/MIGRATIONS.md) for revision authoring and
+the create_all-vs-Alembic parity contract.
 
 ## Roadmap
 
 Active development. Next moves, in priority order:
 
-1. **Alembic migrations** — formalise schema evolution now that persistence is live.
-2. **ZAP authenticated scanning** — context files / login users so ZAP can scan past a login (parity with the slice-11 nuclei + httpx auth support).
-3. **More catalog tools wired** — feroxbuster, nikto, wapiti, retire.js, schemathesis, jwt-tool, polaris, docker-bench.
-4. **LLM-assisted triage in PentestBrain** — same citation guard preserved. Bring up the signal-to-noise ratio across hundreds of findings.
-5. **Burp / mitmproxy traffic ingestion** — browse with the proxy, automatically build a target inventory.
-6. **SARIF import/export everywhere** — CI integration becomes one HTTP POST.
-7. **PDF report rendering**.
-8. **CI workflow** (GitHub Actions) running pytest + lint + npm audit on PRs.
-9. **Signed reports + Merkle-proof immutable evidence references**.
-10. **Multi-user workspaces + JWT/SSO auth** — Asura's own access control.
+1. **ZAP authenticated scanning** — context files / login users so ZAP can scan past a login (parity with nuclei + httpx auth support).
+2. **More catalog tools wired** — feroxbuster, nikto, wapiti, retire.js, schemathesis, jwt-tool, polaris, docker-bench.
+3. **LLM-assisted triage in PentestBrain** — same citation guard preserved. Bring up the signal-to-noise ratio across hundreds of findings.
+4. **Burp / mitmproxy traffic ingestion** — browse with the proxy, automatically build a target inventory.
+5. **SARIF import/export everywhere** — CI integration becomes one HTTP POST.
+6. **PDF report rendering**.
+7. **CI workflow** (GitHub Actions) running pytest + lint + npm audit on PRs.
+8. **Signed reports + Merkle-proof immutable evidence references**.
+9. **Multi-user workspaces + JWT/SSO auth** — Asura's own access control.
 
 ## Contributing
 

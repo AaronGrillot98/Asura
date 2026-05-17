@@ -85,12 +85,31 @@ def session_scope() -> Iterator[Session]:
 
 
 def init_db() -> None:
-    """Create every registered table. Idempotent."""
+    """Create every registered table. Idempotent.
+
+    Two paths:
+
+    - `ASURA_USE_ALEMBIC=1` — run `alembic upgrade head`. Use this in
+      production / docker-compose so the schema is migrated through
+      versioned revisions (and `alembic_version` is populated).
+    - Otherwise — fall back to `Base.metadata.create_all()`. Fast,
+      zero-config; used by tests + local SQLite dev.
+    """
     # Import models so they register with the declarative metadata before
     # create_all walks the registry.
     from . import models  # noqa: F401
 
+    if _alembic_enabled():
+        from .migrate import apply_migrations
+
+        apply_migrations()
+        return
+
     Base.metadata.create_all(bind=engine())
+
+
+def _alembic_enabled() -> bool:
+    return os.environ.get("ASURA_USE_ALEMBIC", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def reset_db_for_tests() -> None:

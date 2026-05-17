@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1280 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Asura — self-hosted security command center">
+  <title>Asura — self-hosted security command center</title>
+  <defs>
+    <!-- Royal purple gradient — iris + aether -->
+    <linearGradient id="asuraPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#3b1d6e"/>
+      <stop offset="55%"  stop-color="#6b21a8"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+
+    <!-- Aged-to-bright gold gradient — wordmark + sigil accents -->
+    <linearGradient id="asuraGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#b8860b"/>
+      <stop offset="55%"  stop-color="#d4af37"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+
+    <!-- Deep purple-to-black plate backdrop -->
+    <radialGradient id="asuraPlate" cx="30%" cy="50%" r="70%">
+      <stop offset="0%"   stop-color="#1a0a36"/>
+      <stop offset="60%"  stop-color="#0d041e"/>
+      <stop offset="100%" stop-color="#05010d"/>
+    </radialGradient>
+
+    <!-- Soft aether glow behind the sigil -->
+    <radialGradient id="asuraAether" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#6b21a8" stop-opacity="0.75"/>
+      <stop offset="55%"  stop-color="#3b1d6e" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#15082c" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="asuraGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- ===== Background plate ===== -->
+  <rect width="1280" height="320" fill="url(#asuraPlate)" rx="14" ry="14"/>
+
+  <!-- Faint horizontal rune lattice -->
+  <g stroke="#2b1452" stroke-width="1" opacity="0.35">
+    <line x1="0" y1="64"  x2="1280" y2="64"/>
+    <line x1="0" y1="128" x2="1280" y2="128"/>
+    <line x1="0" y1="192" x2="1280" y2="192"/>
+    <line x1="0" y1="256" x2="1280" y2="256"/>
+  </g>
+
+  <!-- Subtle gold rune ticks along the top edge -->
+  <g fill="url(#asuraGold)" opacity="0.35">
+    <rect x="80"   y="22" width="2" height="10"/>
+    <rect x="160"  y="22" width="2" height="6"/>
+    <rect x="240"  y="22" width="2" height="10"/>
+    <rect x="320"  y="22" width="2" height="6"/>
+    <rect x="1040" y="22" width="2" height="10"/>
+    <rect x="1120" y="22" width="2" height="6"/>
+    <rect x="1200" y="22" width="2" height="10"/>
+  </g>
+
+  <!-- ===== Sigil mark (mirrors docs/asura-logo.svg, scaled to 240px) ===== -->
+  <g transform="translate(60,40)">
+    <!-- Disk -->
+    <circle cx="120" cy="120" r="118" fill="#0b0418"/>
+    <circle cx="120" cy="120" r="114" fill="#15082c"/>
+    <circle cx="120" cy="120" r="90"  fill="url(#asuraAether)" opacity="0.85"/>
+
+    <!-- 6 broken gold arcs (radius 88, gaps centered at 6 rune points) -->
+    <g fill="none" stroke="url(#asuraGold)" stroke-width="3" stroke-linecap="round" opacity="0.95">
+      <path d="M 203.04  97.62 A 88 88 0 0 1 212.71 142.6"/>
+      <path d="M 205.84 161.84 A 88 88 0 0 1 178.18 198.13"/>
+      <path d="M 162.6  208.31 A 88 88 0 0 1 117.62 217.98"/>
+      <path d="M  84.71 205.42 A 88 88 0 0 1  48.45 177.71"/>
+      <path d="M  38.96 162.16 A 88 88 0 0 1  29.29 117.18"/>
+      <path d="M  41.96  88.16 A 88 88 0 0 1  69.62  51.87"/>
+    </g>
+
+    <!-- Six runic marks at the arc gaps -->
+    <g fill="url(#asuraGold)" opacity="0.95">
+      <polygon points="120,28 124,38 120,48 116,38"/>
+      <polygon points="204,72 210,76 208,84 200,82 200,76"/>
+      <polygon points="204,172 210,172 208,180 200,182 200,176"/>
+      <polygon points="120,220 124,210 120,200 116,210"/>
+      <polygon points="36,172 30,176 32,184 40,182 40,176"/>
+      <polygon points="36,72 30,76 32,84 40,82 40,76"/>
+    </g>
+
+    <!-- Dragon horns -->
+    <g fill="none" stroke="url(#asuraGold)" stroke-width="3" stroke-linecap="round">
+      <path d="M 64 86 Q 50 66 64 46"/>
+      <path d="M 74 82 Q 66 70 76 60"/>
+      <path d="M 176 86 Q 190 66 176 46"/>
+      <path d="M 166 82 Q 174 70 164 60"/>
+    </g>
+
+    <!-- Eye almond -->
+    <path d="M 56 120 Q 120 72 184 120 Q 120 168 56 120 Z"
+          fill="#0b0418"
+          stroke="url(#asuraGold)"
+          stroke-width="4"
+          stroke-linejoin="round"/>
+
+    <!-- Iris -->
+    <circle cx="120" cy="120" r="32" fill="url(#asuraPurple)"/>
+    <circle cx="120" cy="120" r="32" fill="none" stroke="url(#asuraGold)" stroke-width="2"/>
+
+    <!-- Vertical slit pupil -->
+    <path d="M 120 90
+             Q 126 105 126 120
+             Q 126 135 120 150
+             Q 114 135 114 120
+             Q 114 105 120 90 Z"
+          fill="#05010d"/>
+
+    <!-- Pupil gleam -->
+    <ellipse cx="116" cy="106" rx="2.6" ry="4.5" fill="#fde68a" opacity="0.9" filter="url(#asuraGlow)"/>
+
+    <!-- Aether lightning streak -->
+    <polyline points="160,48 170,64 164,72 178,88"
+              fill="none"
+              stroke="url(#asuraGold)"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              opacity="0.85"
+              filter="url(#asuraGlow)"/>
+
+    <!-- Hairline outer ring -->
+    <circle cx="120" cy="120" r="116"
+            fill="none"
+            stroke="url(#asuraGold)"
+            stroke-width="1"
+            opacity="0.55"/>
+  </g>
+
+  <!-- ===== Wordmark ===== -->
+  <g transform="translate(360,148)" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+    <text x="0" y="0"
+          font-size="116"
+          font-weight="800"
+          letter-spacing="6"
+          fill="url(#asuraGold)"
+          filter="url(#asuraGlow)">ASURA</text>
+
+    <!-- Gold accent underline -->
+    <rect x="4" y="18" width="220" height="3" rx="1.5" fill="url(#asuraGold)" opacity="0.9"/>
+
+    <!-- Tagline -->
+    <text x="0" y="62"
+          font-size="22"
+          font-weight="500"
+          letter-spacing="0.8"
+          fill="#e6d6ff">
+      Self-hosted security command center for authorized testing.
+    </text>
+
+    <!-- Sub-tagline -->
+    <text x="0" y="98"
+          font-size="16"
+          font-weight="400"
+          letter-spacing="0.4"
+          fill="#a895c8">
+      Orchestrates 33 scanners · evidence-first · correlates attack paths · refuses to fake a scan.
+    </text>
+  </g>
+
+  <!-- ===== Right-edge gold accent stripe ===== -->
+  <rect x="1260" y="40" width="3" height="240" rx="1.5" fill="url(#asuraGold)" opacity="0.65"/>
+</svg>
