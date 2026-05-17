@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GlobalSearch, GlobalSearchTrigger } from "@/components/global-search";
+import { BackendHealth } from "@/components/backend-health";
 
 type NavEntry = {
   href: string;
@@ -91,9 +92,7 @@ export function Shell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 16, borderTop: "1px solid var(--border-1)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-3)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700 }}>
-            <span className="statusDot ok" /> System
-          </div>
+          <BackendHealth />
           <ThemeToggle />
         </div>
       </aside>

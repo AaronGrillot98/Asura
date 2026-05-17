@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDashboard, getProject, getTargets } from "@/lib/api";
+import { getDashboard, getProject, getTargets, type DashboardSummary, type Project, type Target } from "@/lib/api";
 import { DemoBadge, SeverityBadge } from "@/components/badges";
 import { TargetsSection } from "@/components/targets-section";
 import { DeleteProjectButton } from "@/components/delete-project-button";
@@ -8,23 +8,54 @@ import { RunScanForm } from "@/components/run-scan-form";
 
 export const dynamic = "force-dynamic";
 
+type FetchResult<T> = { ok: T } | { error: string };
+
+async function safeFetch<T>(fn: () => Promise<T>): Promise<FetchResult<T>> {
+  try {
+    return { ok: await fn() };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+function SectionError({ section, message }: { section: string; message: string }) {
+  return (
+    <div className="banner danger" style={{ marginTop: 12 }}>
+      <strong>{section} could not load.</strong> {message} Restart the backend
+      with the latest code and refresh the page. The rest of this view stayed
+      online.
+    </div>
+  );
+}
+
 export default async function ProjectDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let project;
+  // Project lookup is the only fetch that *must* succeed for the page to make
+  // sense. Everything else is wrapped so a single failing endpoint shows a
+  // banner rather than crashing the whole route.
+  let project: Project;
   try {
     project = await getProject(id);
-  } catch {
-    notFound();
+  } catch (err) {
+    if (err instanceof Error && /404|not found/i.test(err.message)) {
+      notFound();
+    }
+    throw err;
   }
   if (!project) notFound();
-  const [targets, dashboard] = await Promise.all([
-    getTargets(id),
-    getDashboard(id),
+
+  const [targetsResult, dashboardResult] = await Promise.all([
+    safeFetch<Target[]>(() => getTargets(id)),
+    safeFetch<DashboardSummary>(() => getDashboard(id)),
   ]);
+
+  const targets: Target[] = "ok" in targetsResult ? targetsResult.ok : [];
+  const dashboard: DashboardSummary | null = "ok" in dashboardResult ? dashboardResult.ok : null;
+
   const rules = project.scope_rules;
-  const criticalCount = dashboard.findings.filter((f) => f.severity === "critical").length;
-  const highCount = dashboard.findings.filter((f) => f.severity === "high").length;
-  const recentRuns = dashboard.scanner_runs.slice(0, 5);
+  const criticalCount = dashboard?.findings.filter((f) => f.severity === "critical").length ?? 0;
+  const highCount = dashboard?.findings.filter((f) => f.severity === "high").length ?? 0;
+  const recentRuns = dashboard?.scanner_runs.slice(0, 5) ?? [];
 
   return (
     <div>
@@ -46,6 +77,10 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
         </div>
       </header>
 
+      {"error" in dashboardResult ? (
+        <SectionError section="Project dashboard" message={dashboardResult.error} />
+      ) : null}
+
       <section className="metrics">
         <article className="metric">
           <span>Risk score</span>
@@ -61,7 +96,7 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
         </article>
         <article className="metric">
           <span>Scanner runs</span>
-          <strong>{dashboard.scanner_runs.length}</strong>
+          <strong>{dashboard?.scanner_runs.length ?? 0}</strong>
         </article>
       </section>
 
@@ -69,19 +104,19 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
         <section className="panel">
           <div className="panelTitle"><h2>Authorized scope</h2></div>
           {rules ? (
-            <ul style={{ color: "#cbd5e1", lineHeight: 1.7, paddingLeft: 18 }}>
+            <ul style={{ color: "var(--text-2)", lineHeight: 1.7, paddingLeft: 18, margin: 0 }}>
               <li>Domains: {rules.domains.join(", ") || "none"}</li>
               <li>URLs: {rules.urls.join(", ") || "none"}</li>
               <li>CIDRs: {rules.cidrs.join(", ") || "none"}</li>
               <li>Repos: {rules.repos.join(", ") || "none"}</li>
               <li>Containers: {rules.containers.join(", ") || "none"}</li>
               <li>Blocked targets: {rules.blocked_targets.join(", ") || "none"}</li>
-              <li>Active allowed: <strong>{String(rules.allow_active)}</strong></li>
-              <li>Lab allowed: <strong>{String(rules.allow_lab)}</strong></li>
+              <li>Active allowed: <strong style={{ color: "var(--text-1)" }}>{String(rules.allow_active)}</strong></li>
+              <li>Lab allowed: <strong style={{ color: "var(--text-1)" }}>{String(rules.allow_lab)}</strong></li>
               <li>Max RPS: {rules.max_requests_per_second} · timeout: {rules.timeout_seconds}s</li>
             </ul>
           ) : (
-            <p style={{ color: "#94a3b8" }}>No scope rules attached.</p>
+            <p style={{ color: "var(--text-3)" }}>No scope rules attached.</p>
           )}
         </section>
         <section className="panel">
@@ -91,11 +126,11 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
               No scans yet. Use <strong>Run scan</strong> above to start one.
             </div>
           ) : (
-            <ul style={{ color: "#cbd5e1", lineHeight: 1.8, paddingLeft: 0, listStyle: "none" }}>
+            <ul style={{ color: "var(--text-2)", lineHeight: 1.8, paddingLeft: 0, listStyle: "none", margin: 0 }}>
               {recentRuns.map((run) => (
-                <li key={run.id} style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #1f2937", padding: "6px 0", fontSize: 13 }}>
+                <li key={run.id} style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--border-1)", padding: "6px 0", fontSize: 13 }}>
                   <span><code className="inlineCode">{run.scanner}</code> · {run.mode}</span>
-                  <span style={{ color: "#94a3b8" }}>{run.status}</span>
+                  <span style={{ color: "var(--text-3)" }}>{run.status}</span>
                 </li>
               ))}
             </ul>
@@ -103,24 +138,28 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
         </section>
       </section>
 
-      <TargetsSection projectId={project.id} initial={targets} />
+      {"error" in targetsResult ? (
+        <SectionError section="Targets" message={targetsResult.error} />
+      ) : (
+        <TargetsSection projectId={project.id} initial={targets} />
+      )}
 
-      {dashboard.findings.length > 0 ? (
+      {dashboard && dashboard.findings.length > 0 ? (
         <section className="panel" style={{ marginTop: 14 }}>
           <div className="panelTitle">
             <h2>Top findings</h2>
-            <Link href={`/findings?project_id=${project.id}`} style={{ color: "#93c5fd", fontSize: 13 }}>
+            <Link href={`/findings?project_id=${project.id}`} style={{ color: "var(--accent)", fontSize: 13 }}>
               View all →
             </Link>
           </div>
-          <ul style={{ paddingLeft: 0, listStyle: "none" }}>
+          <ul style={{ paddingLeft: 0, listStyle: "none", margin: 0 }}>
             {dashboard.findings.slice(0, 5).map((f) => (
-              <li key={f.id} style={{ borderTop: "1px solid #1f2937", padding: "8px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <li key={f.id} style={{ borderTop: "1px solid var(--border-1)", padding: "8px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <SeverityBadge severity={f.severity} />
-                  <span style={{ color: "#cbd5e1" }}>{f.title}</span>
+                  <span style={{ color: "var(--text-2)" }}>{f.title}</span>
                 </div>
-                <Link href={`/findings/${f.id}`} style={{ color: "#93c5fd", fontSize: 13 }}>Open →</Link>
+                <Link href={`/findings/${f.id}`} style={{ color: "var(--accent)", fontSize: 13 }}>Open →</Link>
               </li>
             ))}
           </ul>
