@@ -15,6 +15,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { GlobalSearch, GlobalSearchTrigger } from "@/components/global-search";
 
 type NavEntry = {
   href: string;
@@ -71,6 +72,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <span>Security command center</span>
           </div>
         </div>
+        <GlobalSearchTrigger />
         <nav>
           {NAV.map((section) => (
             <div key={section.label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -96,6 +98,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <main className="content">{children}</main>
+      <GlobalSearch />
     </div>
   );
 }

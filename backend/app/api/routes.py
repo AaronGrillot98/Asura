@@ -330,6 +330,117 @@ def audit(limit: int = Query(default=50, ge=1, le=500)) -> list[AuditLog]:
     return rows[:limit]
 
 
+@router.get("/search")
+def search_all(q: str = "", limit: int = Query(default=30, ge=1, le=100)) -> dict[str, object]:
+    """Aggregate search across projects, findings, tools, runs, attack paths.
+
+    Returns a flat results list with a `kind` discriminator so the UI can
+    group on render. Empty query returns no results — keeps the palette
+    snappy and avoids dumping every record on first focus.
+    """
+    needle = q.strip().lower()
+    if not needle:
+        return {"query": q, "results": []}
+    repos = get_repos()
+    results: list[dict[str, object]] = []
+
+    for project in repos.projects.list():
+        if needle in project.name.lower() or needle in (project.description or "").lower():
+            results.append({
+                "kind": "project",
+                "id": project.id,
+                "title": project.name,
+                "subtitle": project.description[:140],
+                "href": f"/projects/{project.id}",
+                "badge": "demo" if project.is_demo_data else None,
+            })
+
+    for finding in repos.findings.list():
+        haystack = " ".join([
+            finding.title or "",
+            finding.scanner or "",
+            finding.affected_asset or "",
+            finding.affected_component or "",
+            finding.category or "",
+            " ".join(finding.cwe or []),
+            " ".join(finding.cve or []),
+        ]).lower()
+        if needle in haystack:
+            results.append({
+                "kind": "finding",
+                "id": finding.id,
+                "title": finding.title,
+                "subtitle": f"{finding.scanner} · {finding.affected_asset or finding.asset_id}",
+                "href": f"/findings/{finding.id}",
+                "badge": finding.severity.value if hasattr(finding.severity, "value") else str(finding.severity),
+            })
+
+    # Tools come from the static registry — load once.
+    try:
+        arsenal = load_arsenal_for_search()
+        for tool in arsenal:
+            haystack = " ".join([
+                tool["id"], tool["name"], tool["category"], tool["pack"],
+                " ".join(tool["tags"] or []),
+                tool["recommended_use"] or "",
+            ]).lower()
+            if needle in haystack:
+                results.append({
+                    "kind": "tool",
+                    "id": tool["id"],
+                    "title": tool["name"],
+                    "subtitle": f"{tool['pack']} · {tool['category']}",
+                    "href": f"/arsenal#{tool['id']}",
+                    "badge": tool["execution"],
+                })
+    except Exception:  # pragma: no cover — registry should always load
+        pass
+
+    for run in repos.runs.list():
+        haystack = f"{run.scanner} {run.target} {run.status}".lower()
+        if needle in haystack:
+            results.append({
+                "kind": "scan",
+                "id": run.id,
+                "title": f"{run.scanner} → {run.target}",
+                "subtitle": run.message[:120],
+                "href": f"/scans/{run.id}",
+                "badge": run.status,
+            })
+
+    for path in repos.attack_paths.list():
+        haystack = f"{path.title} {path.summary} {path.narrative or ''}".lower()
+        if needle in haystack:
+            results.append({
+                "kind": "attack_path",
+                "id": path.id,
+                "title": path.title,
+                "subtitle": path.summary[:140],
+                "href": f"/attack-paths/{path.id}",
+                "badge": path.status,
+            })
+
+    return {"query": q, "results": results[:limit]}
+
+
+def load_arsenal_for_search() -> list[dict[str, object]]:
+    """Lightweight projection of the arsenal used by the search endpoint."""
+    from app.services.tool_registry import load_arsenal
+    arsenal = load_arsenal()
+    return [
+        {
+            "id": t.id,
+            "name": t.name,
+            "pack": t.pack,
+            "category": t.category,
+            "tags": list(t.tags or []),
+            "recommended_use": t.recommended_use,
+            "execution": t.execution,
+        }
+        for t in arsenal.tools
+    ]
+
+
 @router.get("/dashboard/{project_id}", response_model=DashboardSummary)
 def dashboard(project_id: str) -> DashboardSummary:
     repos = get_repos()

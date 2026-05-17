@@ -62,6 +62,7 @@ export type ScannerRun = {
   args?: string[];
   exit_code?: number | null;
   evidence_ids?: string[];
+  findings_created?: number;
   is_demo_data?: boolean;
 };
 
@@ -291,6 +292,36 @@ export async function getAudit(limit: number = 50): Promise<AuditLog[]> {
 
 export async function getBlockedCapabilities(): Promise<BlockedCapabilities> {
   return getJson<BlockedCapabilities>(`/api/safety/blocked`);
+}
+
+// ---- Global search ----
+
+export type SearchResultKind = "project" | "finding" | "tool" | "scan" | "attack_path";
+
+export type SearchResult = {
+  kind: SearchResultKind;
+  id: string;
+  title: string;
+  subtitle?: string | null;
+  href: string;
+  badge?: string | null;
+};
+
+export type SearchResponse = {
+  query: string;
+  results: SearchResult[];
+};
+
+export async function searchAll(q: string, signal?: AbortSignal): Promise<SearchResponse> {
+  if (!q.trim()) return { query: q, results: [] };
+  const response = await fetch(
+    `${API_URL}/api/search?q=${encodeURIComponent(q)}&limit=30`,
+    { cache: "no-store", signal },
+  );
+  if (!response.ok) {
+    throw new Error(`GET /api/search returned ${response.status}`);
+  }
+  return response.json();
 }
 
 export type StartScanRequest = {

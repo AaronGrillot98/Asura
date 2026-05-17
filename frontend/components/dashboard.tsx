@@ -1,397 +1,459 @@
 "use client";
 
-import { Activity, AlertTriangle, Box, CheckCircle2, Download, GitBranch, KeyRound, Network, PackageCheck, Radar, ShieldAlert, TerminalSquare } from "lucide-react";
-import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  GitBranch,
+  Network,
+  PackageCheck,
+  Radar,
+  ShieldAlert,
+  TerminalSquare,
+} from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { ArsenalSummary, AttackPath, Asset, DashboardSummary, Finding, ScannerRun, Severity, ToolDefinition } from "@/lib/api";
+import type { ArsenalSummary, DashboardSummary, Finding, ScannerRun, Severity } from "@/lib/api";
 import { reportUrl } from "@/lib/api";
 import { RunScanForm } from "@/components/run-scan-form";
+import {
+  Card,
+  EmptyState,
+  MetricCard,
+  SectionHeader,
+  StatusDot,
+  type StatusKind,
+} from "@/components/primitives";
+import { ConfidenceBadge, SeverityBadge } from "@/components/badges";
 
 const severityWeight: Record<Severity, number> = {
   critical: 5,
   high: 4,
   medium: 3,
   low: 2,
-  info: 1
+  info: 1,
 };
 
-const severityClass: Record<Severity, string> = {
-  critical: "sev critical",
-  high: "sev high",
-  medium: "sev medium",
-  low: "sev low",
-  info: "sev info"
-};
+const COVERAGE_DOMAINS: { id: string; label: string; categories: string[] }[] = [
+  { id: "code", label: "Code", categories: ["code"] },
+  { id: "web", label: "Web", categories: ["web", "dast"] },
+  { id: "api", label: "API", categories: ["api", "api security"] },
+  { id: "container", label: "Container", categories: ["container", "sbom"] },
+  { id: "secrets", label: "Secrets", categories: ["secrets"] },
+  { id: "deps", label: "Dependencies", categories: ["dependency"] },
+  { id: "iac", label: "IaC / Cloud", categories: ["iac"] },
+  { id: "network", label: "Network", categories: ["network"] },
+  { id: "ai", label: "AI / LLM", categories: ["llm security", "ai"] },
+];
 
 function countSeverity(findings: Finding[], severity: Severity) {
   return findings.filter((finding) => finding.severity === severity).length;
 }
 
-function assetFor(assets: Asset[], finding: Finding) {
-  return assets.find((asset) => asset.id === finding.asset_id);
+function runHealth(run: ScannerRun): StatusKind {
+  if (run.status === "completed") return "ok";
+  if (run.status === "queued" || run.status === "running") return "info";
+  if (run.status === "blocked") return "warn";
+  return "danger";
 }
 
-function confidenceLabel(confidence: Finding["confidence"]) {
-  return typeof confidence === "number" ? `${confidence}%` : confidence;
-}
-
-function confidenceWeight(confidence: Finding["confidence"]) {
-  if (typeof confidence === "number") return confidence;
-  return { low: 25, medium: 50, high: 80, confirmed: 100 }[confidence];
-}
-
-function Metric({ label, value, tone, icon }: { label: string; value: string | number; tone?: string; icon: ReactNode }) {
-  return (
-    <section className="metric">
-      <div className={`metricIcon ${tone ?? ""}`}>{icon}</div>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </section>
-  );
-}
-
-function ScannerHealth({ runs }: { runs: ScannerRun[] }) {
-  return (
-    <section className="panel">
-      <div className="panelTitle">
-        <TerminalSquare size={18} />
-        <h2>Scanner Health</h2>
-      </div>
-      <div className="runList">
-        {runs.slice(0, 6).map((run) => (
-          <div className="run" key={run.id}>
-            <div>
-              <strong>{run.scanner}</strong>
-              <span>{run.target}</span>
-            </div>
-            <small className={`status ${run.status}`}>{run.status}</small>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function AttackPathGraph({ path }: { path: AttackPath }) {
-  return (
-    <section className="panel attackPanel">
-      <div className="panelTitle">
-        <GitBranch size={18} />
-        <h2>Most Dangerous Chain</h2>
-      </div>
-      <p className="muted">{path.summary}</p>
-      <div className="chain">
-        {path.nodes.map((node, index) => (
-          <div className="chainStep" key={node.id}>
-            <div className={node.severity ? severityClass[node.severity] : "sev info"}>{node.kind}</div>
-            <strong>{node.label}</strong>
-            {index < path.nodes.length - 1 ? <span className="connector">{path.edges[index]?.label}</span> : null}
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function FindingsTable({ findings, assets }: { findings: Finding[]; assets: Asset[] }) {
-  const sorted = [...findings].sort((a, b) => severityWeight[b.severity] - severityWeight[a.severity] || confidenceWeight(b.confidence) - confidenceWeight(a.confidence));
-  return (
-    <section className="panel tablePanel">
-      <div className="panelTitle">
-        <ShieldAlert size={18} />
-        <h2>Findings</h2>
-      </div>
-      <div className="findings">
-        {sorted.map((finding) => (
-          <article className="finding" key={finding.id}>
-            <div className="findingTop">
-              <span className={severityClass[finding.severity]}>{finding.severity}</span>
-              <strong>{finding.title}</strong>
-              <span className="confidence">{confidenceLabel(finding.confidence)}</span>
-            </div>
-            <div className="findingMeta">
-              <span>{finding.scanner}</span>
-              <span>{assetFor(assets, finding)?.name ?? "Unknown asset"}</span>
-              <span>{finding.status}</span>
-            </div>
-            <p>{finding.impact}</p>
-            <details>
-              <summary>Evidence and remediation</summary>
-              <div className="evidenceGrid">
-                <div>
-                  <h3>Evidence</h3>
-                  <p>{finding.evidence[0]?.summary}</p>
-                  <code>{JSON.stringify(finding.evidence[0]?.raw ?? {}, null, 2)}</code>
-                </div>
-                <div>
-                  <h3>Fix</h3>
-                  <p>{finding.recommendation}</p>
-                  <h3>False-positive reasoning</h3>
-                  <p>{finding.false_positive_reasoning}</p>
-                </div>
-              </div>
-            </details>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function AgentPanel({ outputs }: { outputs: DashboardSummary["agent_outputs"] }) {
-  return (
-    <section className="panel">
-      <div className="panelTitle">
-        <Radar size={18} />
-        <h2>Agent Reasoning</h2>
-      </div>
-      <div className="agentList">
-        {outputs.map((output) => (
-          <article className="agentCard" key={output.agent}>
-            <div>
-              <strong>{output.agent.replaceAll("_", " ")}</strong>
-              <span>{output.confidence}</span>
-            </div>
-            <p>{output.summary}</p>
-            {output.recommended_next_steps.length > 0 ? <small>{output.recommended_next_steps[0]}</small> : null}
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function AssetMap({ assets }: { assets: Asset[] }) {
-  const iconFor = (kind: string) => {
-    if (kind === "repo") return <KeyRound size={17} />;
-    if (kind === "container") return <Box size={17} />;
-    if (kind === "host") return <Network size={17} />;
-    return <Radar size={17} />;
-  };
-
-  return (
-    <section className="panel">
-      <div className="panelTitle">
-        <Network size={18} />
-        <h2>Asset Inventory</h2>
-      </div>
-      <div className="assetGrid">
-        {assets.map((asset) => (
-          <div className="asset" key={asset.id}>
-            <div className="assetIcon">{iconFor(asset.kind)}</div>
-            <div>
-              <strong>{asset.name}</strong>
-              <span>{asset.address}</span>
-            </div>
-            <small>{asset.exposure}</small>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function labelize(value: string) {
-  return value.replaceAll("_", " ");
-}
-
-function toolStatusClass(tool: ToolDefinition) {
-  if (tool.execution === "blocked") return "toolBadge blocked";
-  if (tool.integration_status === "runner") return "toolBadge runner";
-  if (tool.execution === "reference") return "toolBadge reference";
-  return "toolBadge planned";
-}
-
-function Arsenal({ arsenal }: { arsenal: ArsenalSummary }) {
-  const [query, setQuery] = useState("");
-  const [pack, setPack] = useState("all");
-  const [execution, setExecution] = useState("all");
-  const visibleTools = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return arsenal.tools.filter((tool) => {
-      const matchesQuery =
-        !needle ||
-        tool.name.toLowerCase().includes(needle) ||
-        tool.category.toLowerCase().includes(needle) ||
-        tool.recommended_use.toLowerCase().includes(needle);
-      const matchesPack = pack === "all" || tool.pack === pack;
-      const matchesExecution = execution === "all" || tool.execution === execution;
-      return matchesQuery && matchesPack && matchesExecution;
-    });
-  }, [arsenal.tools, execution, pack, query]);
-  const runnableCount = arsenal.tools.filter((tool) => tool.execution === "core_runner").length;
-  const blockedCount = arsenal.tools.filter((tool) => tool.execution === "blocked").length;
-  const installedCount = arsenal.tools.filter((tool) => tool.installed).length;
-
-  return (
-    <section className="panel arsenalPanel">
-      <div className="panelTitle splitTitle">
-        <div>
-          <span className="eyebrow">Registry-backed</span>
-          <h2>Arsenal</h2>
-        </div>
-        <div className="arsenalStats">
-          <span>{arsenal.packs.length} packs</span>
-          <span>{runnableCount} core runners</span>
-          <span>{installedCount} installed</span>
-          <span>{blockedCount} blocked</span>
-        </div>
-      </div>
-      <div className="arsenalControls">
-        <input aria-label="Search Arsenal" placeholder="Search tools, categories, use cases" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <select aria-label="Filter by pack" value={pack} onChange={(event) => setPack(event.target.value)}>
-          <option value="all">All packs</option>
-          {arsenal.packs.map((packName) => (
-            <option key={packName} value={packName}>
-              {packName}
-            </option>
-          ))}
-        </select>
-        <select aria-label="Filter by execution" value={execution} onChange={(event) => setExecution(event.target.value)}>
-          <option value="all">All execution classes</option>
-          <option value="core_runner">Core runners</option>
-          <option value="optional_pack">Optional packs</option>
-          <option value="reference">Reference</option>
-          <option value="blocked">Blocked</option>
-        </select>
-      </div>
-      <div className="packSummaryGrid">
-        {arsenal.pack_summaries.map((summary) => (
-          <div className="packSummary" key={summary.name}>
-            <strong>{summary.name}</strong>
-            <span>{summary.total} tools</span>
-            <small>{summary.core_runners} core / {summary.optional} optional / {summary.reference} reference</small>
-          </div>
-        ))}
-      </div>
-      <div className="toolGrid">
-        {visibleTools.map((tool) => (
-          <article className="toolCard" key={tool.id}>
-            <div className="toolTop">
-              <div>
-                <strong>{tool.name}</strong>
-                <span>{tool.pack}</span>
-              </div>
-              <small className={toolStatusClass(tool)}>{labelize(tool.execution)}</small>
-            </div>
-            <p>{tool.recommended_use}</p>
-            <div className="toolMeta">
-              <span>{tool.category}</span>
-              <span>{tool.license}</span>
-              <span>{tool.installed ? "Installed" : tool.install_status}</span>
-              <span>{tool.docker_available ? "Docker" : "External"}</span>
-              <span>{tool.integration_status}</span>
-            </div>
-            {tool.executable ? <code className="inlineCode">{tool.executable}</code> : null}
-            <div className="modeRow">
-              {tool.modes.length > 0 ? tool.modes.map((mode) => <span key={mode}>{mode}</span>) : <span>blocked</span>}
-            </div>
-            {!tool.installed && tool.install_hint ? <small className="installHint">{tool.install_hint}</small> : null}
-            {tool.risk_warning ? <small className="riskWarning">{tool.risk_warning}</small> : null}
-          </article>
-        ))}
-      </div>
-      {visibleTools.length === 0 ? <div className="emptyState">No tools match the current Arsenal filters.</div> : null}
-      <div className="blockedPolicy">
-        <strong>Blocked-tools policy</strong>
-        <div>
-          {arsenal.blocked_policy.map((policy) => (
-            <span key={policy}>{policy}</span>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
+function coverageCount(findings: Finding[], categories: string[]): number {
+  const set = new Set(categories.map((c) => c.toLowerCase()));
+  return findings.filter((f) => set.has((f.category || "").toLowerCase())).length;
 }
 
 export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: ArsenalSummary }) {
   const path = data.attack_paths[0];
+  const criticalCount = countSeverity(data.findings, "critical");
+  const highCount = countSeverity(data.findings, "high");
+  const runnableTools = arsenal.tools.filter(
+    (t) => t.integration_status === "runner" && t.execution !== "blocked",
+  ).length;
+
+  const sortedFindings = [...data.findings].sort(
+    (a, b) => severityWeight[b.severity] - severityWeight[a.severity],
+  );
+  const fixOrder = path?.remediation_order ?? [];
+  const fixList = fixOrder
+    .map((id) => data.findings.find((f) => f.id === id))
+    .filter((f): f is Finding => f !== undefined);
+
   return (
     <>
       {data.is_demo_data ? (
-        <div style={{ background: "rgba(245, 158, 11, 0.12)", border: "1px solid rgba(245, 158, 11, 0.3)", color: "#fcd34d", padding: "10px 14px", borderRadius: 10, marginBottom: 12, fontSize: 13 }}>
-          <strong>Demo mode:</strong> findings on this dashboard are seeded demo evidence, not the result of a live scan.
+        <div className="banner demo">
+          <strong>Demo mode:</strong> findings on this dashboard are seeded
+          demo evidence, not the result of a live scan. Set{" "}
+          <code className="inlineCode">ASURA_DEMO_MODE=1</code> on the backend
+          to freeze every new scan on seeded output.
         </div>
       ) : null}
-        <header className="topbar">
-          <div>
-            <span className="eyebrow">Workspace / {data.is_demo_data ? "Demo" : "Live"}</span>
-            <h1>{data.project.name}</h1>
-            <p>{data.project.description}</p>
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <RunScanForm projectId={data.project.id} />
-            <a className="button" href={reportUrl(data.project.id)}>
-              <Download size={16} />
-              Export report
-            </a>
-          </div>
-        </header>
 
-        <section className="metrics">
-          <Metric label="Executive risk" value={`${data.project.risk_score}/100`} tone="danger" icon={<AlertTriangle size={19} />} />
-          <Metric label="Critical findings" value={countSeverity(data.findings, "critical")} tone="danger" icon={<ShieldAlert size={19} />} />
-          <Metric label="Tracked assets" value={data.assets.length} icon={<Network size={19} />} />
-          <Metric label="Arsenal tools" value={arsenal.tools.length} icon={<PackageCheck size={19} />} />
-        </section>
+      <header className="topbar">
+        <div>
+          <span className="eyebrow">
+            Workspace / {data.is_demo_data ? "Demo" : "Live"}
+          </span>
+          <h1>{data.project.name}</h1>
+          <p>{data.project.description}</p>
+        </div>
+        <div className="topbarActions">
+          <RunScanForm projectId={data.project.id} />
+          <a className="button ghost" href={reportUrl(data.project.id)}>
+            <Download size={14} />
+            Export report
+          </a>
+        </div>
+      </header>
 
-        <section className="grid two">
-          <section className="panel">
-            <div className="panelTitle">
-              <Activity size={18} />
+      {/* ---- Hero metrics --------------------------------------------------- */}
+      <section className="metrics">
+        <MetricCard
+          label="Executive risk"
+          value={`${data.project.risk_score}/100`}
+          tone={data.project.risk_score >= 80 ? "danger" : data.project.risk_score >= 60 ? "warn" : "ok"}
+          icon={<AlertTriangle size={16} />}
+        />
+        <MetricCard
+          label="Critical findings"
+          value={criticalCount}
+          tone={criticalCount > 0 ? "danger" : "ok"}
+          icon={<ShieldAlert size={16} />}
+          hint={`${highCount} high`}
+        />
+        <MetricCard
+          label="Scanner runs"
+          value={data.scanner_runs.length}
+          tone="ok"
+          icon={<Activity size={16} />}
+          hint={`${data.scanner_runs.filter((r) => r.status === "completed").length} completed`}
+        />
+        <MetricCard
+          label="Runner-ready tools"
+          value={runnableTools}
+          tone="ok"
+          icon={<PackageCheck size={16} />}
+          hint={`${arsenal.tools.length} registered`}
+        />
+      </section>
+
+      {/* ---- Risk + Coverage ----------------------------------------------- */}
+      <SectionHeader title="Risk overview" description="Trend and surface coverage at a glance." />
+      <div className="grid two">
+        <section className="panel">
+          <div className="panelTitle">
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Activity size={16} />
               <h2>Risk Trend</h2>
             </div>
+            {data.risk_trend.length === 0 ? (
+              <small>No history yet</small>
+            ) : (
+              <small>
+                {data.risk_trend.length} day(s) · latest{" "}
+                {data.risk_trend[data.risk_trend.length - 1]?.score}
+              </small>
+            )}
+          </div>
+          {data.risk_trend.length === 0 ? (
+            <EmptyState
+              icon={<Activity size={24} />}
+              title="No history yet"
+              description="Submit a scan to start accumulating a risk trend for this project."
+            />
+          ) : (
             <div className="chart">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={data.risk_trend}>
                   <defs>
                     <linearGradient id="risk" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.34} />
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--danger)" stopOpacity={0.36} />
+                      <stop offset="95%" stopColor="var(--danger)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke="#223041" vertical={false} />
-                  <XAxis dataKey="date" stroke="#8291a5" tick={{ fontSize: 12 }} />
-                  <YAxis stroke="#8291a5" tick={{ fontSize: 12 }} domain={[0, 100]} />
-                  <Tooltip contentStyle={{ background: "#101923", border: "1px solid #26374a", color: "#e7eef8" }} />
-                  <Area type="monotone" dataKey="score" stroke="#ef4444" fill="url(#risk)" strokeWidth={2} />
+                  <CartesianGrid stroke="var(--border-1)" vertical={false} />
+                  <XAxis dataKey="date" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} domain={[0, 100]} />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--bg-2)",
+                      border: "1px solid var(--border-2)",
+                      color: "var(--text-1)",
+                      borderRadius: 8,
+                    }}
+                  />
+                  <Area type="monotone" dataKey="score" stroke="var(--danger)" fill="url(#risk)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </section>
-          <ScannerHealth runs={data.scanner_runs} />
+          )}
         </section>
 
-        <section className="grid two">
-          <AttackPathGraph path={path} />
-          <section className="panel">
-            <div className="panelTitle">
-              <CheckCircle2 size={18} />
-              <h2>Fix These 5 First</h2>
+        <section className="panel">
+          <div className="panelTitle">
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Radar size={16} />
+              <h2>Coverage by domain</h2>
             </div>
-            <div className="fixList">
-              {path.remediation_order.map((id, index) => {
-                const finding = data.findings.find((item) => item.id === id);
-                if (!finding) return null;
-                return (
-                  <div className="fix" key={id}>
-                    <span>{index + 1}</span>
-                    <div>
-                      <strong>{finding.title}</strong>
-                      <small>{finding.recommendation}</small>
+            <small>Findings per category</small>
+          </div>
+          <div className="grid three" style={{ gap: 8 }}>
+            {COVERAGE_DOMAINS.map((domain) => {
+              const count = coverageCount(data.findings, domain.categories);
+              return (
+                <div key={domain.id} className="card" style={{ padding: 12, gap: 4 }}>
+                  <span className="cardSubtle">{domain.label}</span>
+                  <strong style={{ fontSize: 20, color: count > 0 ? "var(--text-1)" : "var(--text-3)" }}>{count}</strong>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+
+      {/* ---- Attack path + Fix these first --------------------------------- */}
+      {path ? (
+        <>
+          <SectionHeader
+            title="Active hypotheses"
+            description="The most dangerous chain in this project and the fixes that retire it."
+            actions={
+              <Link href="/attack-paths" className="button ghost">
+                All paths →
+              </Link>
+            }
+          />
+          <div className="grid two">
+            <Card>
+              <div className="cardHeader">
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <GitBranch size={16} />
+                  <span className="cardSubtle">Most dangerous chain</span>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {path.severity ? <SeverityBadge severity={path.severity} /> : null}
+                  <ConfidenceBadge confidence={path.confidence ?? "medium"} />
+                </div>
+              </div>
+              <div className="cardTitle">{path.title}</div>
+              <p className="cardBody">{path.narrative ?? path.summary}</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {path.finding_ids.map((id) => (
+                  <span key={id} className="inlineCode">{id}</span>
+                ))}
+              </div>
+              <div className="cardFooter">
+                <span>{path.finding_ids.length} finding(s) correlated</span>
+                <Link href={`/attack-paths/${path.id}`}>Open →</Link>
+              </div>
+            </Card>
+
+            <section className="panel">
+              <div className="panelTitle">
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <CheckCircle2 size={16} />
+                  <h2>Fix these first</h2>
+                </div>
+                <small>Ordered for impact</small>
+              </div>
+              {fixList.length === 0 ? (
+                <EmptyState
+                  icon={<CheckCircle2 size={24} />}
+                  title="Nothing to fix yet"
+                  description="As findings land in this project, the brain orders them for impact here."
+                />
+              ) : (
+                <div className="fixList">
+                  {fixList.slice(0, 5).map((finding, index) => (
+                    <Link
+                      href={`/findings/${finding.id}`}
+                      key={finding.id}
+                      className="fix"
+                      style={{ textDecoration: "none" }}
+                    >
+                      <span>{index + 1}</span>
+                      <div>
+                        <strong>{finding.title}</strong>
+                        <small>{finding.recommendation}</small>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        </>
+      ) : null}
+
+      {/* ---- Scanner health card grid -------------------------------------- */}
+      <SectionHeader
+        title="Scanner health"
+        count={data.scanner_runs.length}
+        description="Recent runs across this project."
+        actions={
+          <Link href="/scans" className="button ghost">
+            All runs →
+          </Link>
+        }
+      />
+      {data.scanner_runs.length === 0 ? (
+        <EmptyState
+          icon={<TerminalSquare size={24} />}
+          title="No scanner runs yet"
+          description="Submit a scan from above to record this project's first run."
+        />
+      ) : (
+        <div className="grid three">
+          {data.scanner_runs.slice(0, 6).map((run) => {
+            const kind = runHealth(run);
+            return (
+              <Card key={run.id} interactive>
+                <Link href={`/scans/${run.id}`} style={{ textDecoration: "none", color: "inherit", display: "contents" }}>
+                  <div className="cardHeader">
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <StatusDot kind={kind} title={run.status} />
+                      <div>
+                        <div className="cardTitle">
+                          <code className="inlineCode">{run.scanner}</code>
+                        </div>
+                        <small style={{ color: "var(--text-3)" }}>{run.mode}</small>
+                      </div>
                     </div>
+                    <small className={`status ${run.status}`}>{run.status}</small>
                   </div>
-                );
-              })}
-            </div>
-          </section>
-        </section>
+                  <p className="cardBody" style={{ fontSize: 12, color: "var(--text-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {run.target}
+                  </p>
+                  <div className="cardFooter">
+                    <span>{run.findings_created ?? 0} finding(s) created</span>
+                    <span>{run.is_demo_data ? "demo" : "live"}</span>
+                  </div>
+                </Link>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
-        <AgentPanel outputs={data.agent_outputs} />
-        <AssetMap assets={data.assets} />
-        <Arsenal arsenal={arsenal} />
-        <FindingsTable findings={data.findings} assets={data.assets} />
+      {/* ---- Brain reasoning ----------------------------------------------- */}
+      {data.agent_outputs.length > 0 ? (
+        <>
+          <SectionHeader
+            title="PentestBrain reasoning"
+            description="Every claim cites the evidence IDs that produced it."
+          />
+          <div className="grid two">
+            {data.agent_outputs.map((output, idx) => (
+              <Card key={`${output.agent}-${idx}`}>
+                <div className="cardHeader">
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <StatusDot kind={output.confidence === "confirmed" || output.confidence === "high" ? "ok" : output.confidence === "medium" ? "info" : "muted"} />
+                    <span className="cardSubtle">{output.agent.replaceAll("_", " ")}</span>
+                  </div>
+                  <small style={{ color: "var(--text-3)" }}>{output.confidence}</small>
+                </div>
+                <p className="cardBody">{output.summary}</p>
+                {output.cited_evidence_ids && output.cited_evidence_ids.length > 0 ? (
+                  <small style={{ color: "var(--text-3)" }}>
+                    Cites {output.cited_evidence_ids.length} evidence record(s).
+                  </small>
+                ) : null}
+                {output.recommended_next_steps.length > 0 ? (
+                  <ul style={{ margin: 0, paddingLeft: 18, color: "var(--text-2)", lineHeight: 1.6 }}>
+                    {output.recommended_next_steps.slice(0, 3).map((step, i) => (
+                      <li key={i} style={{ fontSize: 13 }}>{step}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </Card>
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {/* ---- Top findings (link out for full table) ------------------------ */}
+      <SectionHeader
+        title="Top findings"
+        count={sortedFindings.length}
+        description="Highest-severity findings in this project."
+        actions={
+          <Link href={`/findings?project_id=${data.project.id}`} className="button ghost">
+            All findings →
+          </Link>
+        }
+      />
+      {sortedFindings.length === 0 ? (
+        <EmptyState
+          icon={<ShieldAlert size={24} />}
+          title="No findings yet"
+          description="Submit a scan to start populating this project's findings."
+        />
+      ) : (
+        <div className="grid two">
+          {sortedFindings.slice(0, 6).map((finding) => (
+            <Card key={finding.id} interactive>
+              <Link href={`/findings/${finding.id}`} style={{ textDecoration: "none", color: "inherit", display: "contents" }}>
+                <div className="cardHeader">
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <SeverityBadge severity={finding.severity} />
+                    <ConfidenceBadge confidence={finding.confidence} />
+                  </div>
+                  <small style={{ color: "var(--text-3)" }}>
+                    <code className="inlineCode">{finding.scanner}</code>
+                  </small>
+                </div>
+                <div className="cardTitle">{finding.title}</div>
+                <p className="cardBody" style={{ fontSize: 13 }}>{finding.impact}</p>
+                <div className="cardFooter">
+                  <span>{finding.affected_asset ?? finding.asset_id}</span>
+                  <span>Open →</span>
+                </div>
+              </Link>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ---- Quick links --------------------------------------------------- */}
+      <SectionHeader title="Quick links" />
+      <div className="grid three">
+        <Link href="/arsenal" style={{ textDecoration: "none", color: "inherit" }}>
+          <Card interactive>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div className="metricIcon"><PackageCheck size={16} /></div>
+              <div>
+                <div className="cardTitle">Arsenal</div>
+                <small style={{ color: "var(--text-3)" }}>
+                  {arsenal.tools.length} tools · {runnableTools} runner-ready
+                </small>
+              </div>
+            </div>
+          </Card>
+        </Link>
+        <Link href="/reports" style={{ textDecoration: "none", color: "inherit" }}>
+          <Card interactive>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div className="metricIcon"><Download size={16} /></div>
+              <div>
+                <div className="cardTitle">Reports</div>
+                <small style={{ color: "var(--text-3)" }}>Markdown + JSON with scope, evidence, safety statement</small>
+              </div>
+            </div>
+          </Card>
+        </Link>
+        <Link href="/audit" style={{ textDecoration: "none", color: "inherit" }}>
+          <Card interactive>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div className="metricIcon"><Network size={16} /></div>
+              <div>
+                <div className="cardTitle">Audit log</div>
+                <small style={{ color: "var(--text-3)" }}>Every scope decision recorded</small>
+              </div>
+            </div>
+          </Card>
+        </Link>
+      </div>
     </>
   );
 }

@@ -70,6 +70,48 @@ def test_arsenal_lab_only_filter() -> None:
     assert {"chainsaw", "volatility3"}.issubset(forensic_ids)
 
 
+def test_search_empty_query_returns_empty_results() -> None:
+    response = client.get("/api/search")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["results"] == []
+
+
+def test_search_finds_demo_project_by_name() -> None:
+    response = client.get("/api/search", params={"q": "Acme"})
+    assert response.status_code == 200
+    body = response.json()
+    kinds = {r["kind"] for r in body["results"]}
+    assert "project" in kinds
+    project_match = next(r for r in body["results"] if r["kind"] == "project")
+    assert "Acme" in project_match["title"]
+    assert project_match["href"].startswith("/projects/")
+
+
+def test_search_finds_seeded_finding() -> None:
+    response = client.get("/api/search", params={"q": "admin"})
+    assert response.status_code == 200
+    results = response.json()["results"]
+    finding_hits = [r for r in results if r["kind"] == "finding"]
+    assert len(finding_hits) >= 1
+    assert finding_hits[0]["href"].startswith("/findings/")
+    assert finding_hits[0]["badge"]  # severity is non-empty
+
+
+def test_search_finds_tools_from_arsenal() -> None:
+    response = client.get("/api/search", params={"q": "semgrep"})
+    assert response.status_code == 200
+    results = response.json()["results"]
+    tool_hits = [r for r in results if r["kind"] == "tool"]
+    assert any(r["id"] == "semgrep" for r in tool_hits)
+
+
+def test_search_respects_limit() -> None:
+    response = client.get("/api/search", params={"q": "a", "limit": 5})
+    assert response.status_code == 200
+    assert len(response.json()["results"]) <= 5
+
+
 def test_post_scan_records_audit_entry() -> None:
     response = client.post(
         "/api/scans",
