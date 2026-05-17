@@ -1,4 +1,6 @@
+import { ScrollText } from "lucide-react";
 import { getAudit } from "@/lib/api";
+import { EmptyState, SectionHeader, StatusDot } from "@/components/primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -14,36 +16,46 @@ export default async function AuditPage() {
         </div>
       </header>
 
+      <SectionHeader title="Recent decisions" count={rows.length} />
+
       <section className="panel">
         {rows.length === 0 ? (
-          <div className="emptyState">Audit log is empty. Trigger a scan from <code className="inlineCode">POST /api/scans</code> to record entries.</div>
+          <EmptyState
+            icon={<ScrollText size={28} />}
+            title="Audit log is empty"
+            description="Submit a scan to record the scope decision. Every allow / block is captured here with a reason and payload."
+          />
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <table>
             <thead>
-              <tr style={{ textAlign: "left", color: "#94a3b8", fontSize: 12 }}>
-                <th style={{ padding: "10px 6px" }}>Timestamp</th>
-                <th style={{ padding: "10px 6px" }}>Decision</th>
-                <th style={{ padding: "10px 6px" }}>Action</th>
-                <th style={{ padding: "10px 6px" }}>Target</th>
-                <th style={{ padding: "10px 6px" }}>Reason</th>
+              <tr>
+                <th>Timestamp</th>
+                <th>Decision</th>
+                <th>Action</th>
+                <th>Target</th>
+                <th>Reason</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} style={{ borderTop: "1px solid #1f2937" }}>
-                  <td style={{ padding: "10px 6px", color: "#94a3b8", fontSize: 12 }}>{r.timestamp}</td>
-                  <td style={{ padding: "10px 6px" }}>
-                    <span style={{
-                      color: r.decision === "block" ? "#fca5a5" : r.decision === "allow" ? "#86efac" : "#cbd5e1",
-                      fontWeight: 600,
-                      fontSize: 12,
-                    }}>{r.decision ?? r.result}</span>
-                  </td>
-                  <td style={{ padding: "10px 6px", color: "#cbd5e1", fontSize: 12 }}>{r.action}</td>
-                  <td style={{ padding: "10px 6px", color: "#cbd5e1", fontSize: 12 }}>{r.target}</td>
-                  <td style={{ padding: "10px 6px", color: "#94a3b8", fontSize: 12 }}>{r.reason ?? r.reason_code}</td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const kind = r.decision === "block" ? "danger" : r.decision === "allow" ? "ok" : "muted";
+                return (
+                  <tr key={r.id}>
+                    <td><small>{r.timestamp}</small></td>
+                    <td>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <StatusDot kind={kind} title={r.decision ?? r.result} />
+                        <strong style={{ color: "var(--text-1)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          {r.decision ?? r.result}
+                        </strong>
+                      </span>
+                    </td>
+                    <td><small>{r.action}</small></td>
+                    <td><small>{r.target}</small></td>
+                    <td><small>{r.reason ?? r.reason_code}</small></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

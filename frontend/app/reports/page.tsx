@@ -22,7 +22,7 @@ export default function ReportsPage() {
 
       <section className="panel">
         <div className="panelTitle"><h2>Sections shipped in every report</h2></div>
-        <ol style={{ color: "#cbd5e1", paddingLeft: 18, lineHeight: 1.7 }}>
+        <ol style={{ color: "var(--text-2)", paddingLeft: 18, lineHeight: 1.7, margin: 0 }}>
           <li>Engagement Summary</li>
           <li>Scope</li>
           <li>Authorization Statement</li>
@@ -38,7 +38,7 @@ export default function ReportsPage() {
           <li>Appendix: Raw Evidence References</li>
           <li>Safety Statement</li>
         </ol>
-        <p style={{ color: "#94a3b8", marginTop: 10, fontSize: 13 }}>
+        <p style={{ marginTop: 10 }}>
           PDF rendering is not yet implemented; reports stamp <code className="inlineCode">pdf_status: not_generated</code>.
         </p>
       </section>

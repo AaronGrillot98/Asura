@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Boxes, Plus } from "lucide-react";
 import { getProjects } from "@/lib/api";
 import { DemoBadge } from "@/components/badges";
+import { EmptyState, SectionHeader, StatusDot } from "@/components/primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export default async function ProjectsPage() {
     <div>
       <header className="topbar">
         <div>
-          <span className="eyebrow">Projects</span>
+          <span className="eyebrow">Workspace</span>
           <h1>Projects</h1>
           <p>{projects.length} project(s) registered in this workspace.</p>
         </div>
@@ -19,23 +20,53 @@ export default async function ProjectsPage() {
           <Plus size={14} /> New project
         </Link>
       </header>
-      <section className="panel">
-        {projects.map((p) => (
-          <article key={p.id} style={{ padding: "12px 0", borderTop: "1px solid #1f2937" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <strong style={{ fontSize: 16 }}>{p.name}</strong>{" "}
-                <DemoBadge demo={p.is_demo_data} />
-                <p style={{ color: "#94a3b8", margin: "4px 0 0" }}>{p.description}</p>
-                <small style={{ color: "#94a3b8" }}>
-                  Risk score: {p.risk_score}/100 · targets: {p.targets.length}
-                </small>
-              </div>
-              <Link href={`/projects/${p.id}`} className="button">Open →</Link>
-            </div>
-          </article>
-        ))}
-      </section>
+
+      <SectionHeader
+        title="All projects"
+        count={projects.length}
+        description="The seeded demo is read-only; user-created projects can be edited and deleted."
+      />
+
+      {projects.length === 0 ? (
+        <EmptyState
+          icon={<Boxes size={28} />}
+          title="No projects yet"
+          description="Create a project to declare authorized scope and start scanning your own systems."
+          action={
+            <Link href="/projects/new" className="button">
+              <Plus size={14} /> New project
+            </Link>
+          }
+        />
+      ) : (
+        <div className="grid two">
+          {projects.map((p) => {
+            const status = p.is_demo_data ? "info" : "ok";
+            const statusTitle = p.is_demo_data ? "Seeded demo project" : "User project";
+            return (
+              <article className="card interactive" key={p.id}>
+                <div className="cardHeader">
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                    <StatusDot kind={status} title={statusTitle} />
+                    <div>
+                      <div className="cardTitle">{p.name}</div>
+                      <small style={{ color: "var(--text-3)" }}>{p.id}</small>
+                    </div>
+                  </div>
+                  <DemoBadge demo={p.is_demo_data} />
+                </div>
+                <p className="cardBody">{p.description}</p>
+                <div className="cardFooter">
+                  <span>
+                    Risk score: <strong style={{ color: "var(--text-1)" }}>{p.risk_score}/100</strong> · targets: {p.targets.length}
+                  </span>
+                  <Link href={`/projects/${p.id}`}>Open →</Link>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
