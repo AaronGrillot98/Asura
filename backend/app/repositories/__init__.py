@@ -21,6 +21,7 @@ from app.models.schemas import (
     RemediationTask,
     Report,
     Scan,
+    ScanJob,
     ScanSchedule,
     ScannerRun,
     Target,
@@ -48,6 +49,7 @@ class Repos:
     audit: InMemoryRepository[AuditLog] = field(default_factory=lambda: InMemoryRepository[AuditLog]())
     reports: InMemoryRepository[Report] = field(default_factory=lambda: InMemoryRepository[Report]())
     schedules: InMemoryRepository[ScanSchedule] = field(default_factory=lambda: InMemoryRepository[ScanSchedule]())
+    jobs: InMemoryRepository[ScanJob] = field(default_factory=lambda: InMemoryRepository[ScanJob]())
 
 
 _REPOS: Optional[Repos] = None

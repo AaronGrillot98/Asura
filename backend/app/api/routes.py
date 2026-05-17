@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 
 from app.models.schemas import (
     ArsenalSummary,
+    AsyncScanResponse,
     AttackPath,
     AuditLog,
     AuthorizedScope,
@@ -20,12 +21,15 @@ from app.models.schemas import (
     Evidence,
     Finding,
     FindingStatusPatch,
+    Pipeline,
+    PipelineRunRequest,
     Project,
     ProjectCreate,
     ProjectUpdate,
     RegistryContractReport,
     Report,
     ReportRequest,
+    ScanJob,
     ScanRequest,
     ScannerRun,
     ScopeRules,
@@ -33,6 +37,13 @@ from app.models.schemas import (
     TargetCreate,
 )
 from app.repositories import get_repos
+from app.services.job_queue import JobQueue
+from app.services.job_runner import (
+    find_pipeline_or_fail,
+    run_pipeline_job,
+    run_scan_request_job,
+)
+from app.services.pipelines import list_pipelines
 from app.security.blocked_capabilities import as_dicts as blocked_capabilities_dicts
 from app.security.scope_guard import decide_scope, validate_scan_scope
 from app.services.demo_store import RISK_TREND
@@ -328,6 +339,114 @@ def safety_blocked() -> dict[str, object]:
 def audit(limit: int = Query(default=50, ge=1, le=500)) -> list[AuditLog]:
     rows = sorted(get_repos().audit.list(), key=lambda r: r.timestamp, reverse=True)
     return rows[:limit]
+
+
+# ---------------------------------------------------------------------------
+# Async jobs (background scans + pipelines)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/scans/async", response_model=AsyncScanResponse, status_code=202)
+def start_scan_async(request: ScanRequest) -> AsyncScanResponse:
+    """Submit a scan for background execution. Returns immediately with a job id.
+
+    Poll `GET /api/jobs/{job_id}` for status. The job exits with status
+    `completed` (work done), `failed` (any scanner errored or threw),
+    `blocked` (scope guard rejected), or `partial` (some succeeded, some
+    didn't).
+    """
+    repos = get_repos()
+    if repos.projects.get(request.project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    queue = JobQueue(repos)
+
+    # Capture the request data so the worker thread has a stable snapshot.
+    payload = request.model_dump(mode="json")
+
+    def callback(job: ScanJob) -> None:
+        run_scan_request_job(repos, job, ScanRequest.model_validate(payload))
+
+    job = queue.submit(
+        project_id=request.project_id,
+        kind="scan",
+        scan_request=payload,
+        fn=callback,
+    )
+    return AsyncScanResponse(
+        job_id=job.id,
+        status=job.status,
+        backend=job.backend,
+        poll_url=f"/api/jobs/{job.id}",
+        message=f"Submitted {len(request.scanners)} scanner(s) for background execution.",
+    )
+
+
+@router.get("/jobs", response_model=list[ScanJob])
+def list_jobs(
+    project_id: str | None = None,
+    limit: int = Query(default=50, ge=1, le=500),
+) -> list[ScanJob]:
+    rows = get_repos().jobs.list()
+    if project_id:
+        rows = [j for j in rows if j.project_id == project_id]
+    rows = sorted(rows, key=lambda j: j.created_at, reverse=True)
+    return rows[:limit]
+
+
+@router.get("/jobs/{job_id}", response_model=ScanJob)
+def get_job(job_id: str) -> ScanJob:
+    job = get_repos().jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+
+# ---------------------------------------------------------------------------
+# Pipelines (named chains of scanner stages)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/pipelines", response_model=list[Pipeline])
+def get_pipelines() -> list[Pipeline]:
+    return list_pipelines()
+
+
+@router.post("/pipelines/run", response_model=AsyncScanResponse, status_code=202)
+def start_pipeline(request: PipelineRunRequest) -> AsyncScanResponse:
+    repos = get_repos()
+    if repos.projects.get(request.project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    try:
+        pipeline = find_pipeline_or_fail(request.pipeline_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    queue = JobQueue(repos)
+
+    def callback(job: ScanJob) -> None:
+        run_pipeline_job(
+            repos,
+            job,
+            pipeline,
+            request.target,
+            request.explicit_authorization,
+            request.confirm_high_noise,
+        )
+
+    job = queue.submit(
+        project_id=request.project_id,
+        kind="pipeline",
+        pipeline_id=request.pipeline_id,
+        scan_request=request.model_dump(mode="json"),
+        fn=callback,
+    )
+    return AsyncScanResponse(
+        job_id=job.id,
+        status=job.status,
+        backend=job.backend,
+        poll_url=f"/api/jobs/{job.id}",
+        message=f"Pipeline '{pipeline.name}' submitted ({len(pipeline.stages)} stages).",
+    )
 
 
 @router.get("/search")

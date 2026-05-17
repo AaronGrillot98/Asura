@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Play } from "lucide-react";
-import { startScan, type Project, type ScannerRun, type StartScanRequest } from "@/lib/api";
+import { startScan, startScanAsync, type Project, type ScannerRun, type StartScanRequest } from "@/lib/api";
 
 const CORE_SCANNERS: { id: string; label: string; defaultMode: "passive" | "active" }[] = [
   // Core 10 — first-class engines
@@ -38,6 +38,7 @@ type Status =
   | { kind: "idle" }
   | { kind: "running"; message: string }
   | { kind: "ok"; runs: ScannerRun[] }
+  | { kind: "queued"; jobId: string }
   | { kind: "error"; message: string };
 
 export function RunScanForm({
@@ -58,6 +59,7 @@ export function RunScanForm({
   const [authorizedScope, setAuthorizedScope] = useState("");
   const [explicitAuthorization, setExplicitAuthorization] = useState(false);
   const [confirmHighNoise, setConfirmHighNoise] = useState(false);
+  const [runInBackground, setRunInBackground] = useState(false);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const toggleScanner = (id: string) => {
@@ -91,8 +93,13 @@ export function RunScanForm({
     };
     setStatus({ kind: "running", message: `Running ${scanners.length} scanner(s)…` });
     try {
-      const runs = await startScan(payload);
-      setStatus({ kind: "ok", runs });
+      if (runInBackground) {
+        const response = await startScanAsync(payload);
+        setStatus({ kind: "queued", jobId: response.job_id });
+      } else {
+        const runs = await startScan(payload);
+        setStatus({ kind: "ok", runs });
+      }
       router.refresh();
     } catch (err) {
       setStatus({ kind: "error", message: err instanceof Error ? err.message : String(err) });
@@ -188,6 +195,10 @@ export function RunScanForm({
             <input type="checkbox" checked={confirmHighNoise} onChange={(e) => setConfirmHighNoise(e.target.checked)} />
             I accept that high-noise scanners (ffuf, gobuster, nikto, etc.) may generate substantial traffic.
           </label>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <input type="checkbox" checked={runInBackground} onChange={(e) => setRunInBackground(e.target.checked)} />
+            Run in background — submit a job and poll progress on /jobs (recommended for long scans).
+          </label>
         </div>
 
         {status.kind === "error" ? (
@@ -201,8 +212,14 @@ export function RunScanForm({
           </div>
         ) : null}
         {status.kind === "ok" ? (
-          <div style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)", color: "#86efac", padding: "8px 12px", borderRadius: 8, fontSize: 13 }}>
+          <div className="banner info" style={{ fontSize: 13 }}>
             Submitted {status.runs.length} run(s). {status.runs.map((r) => `${r.scanner}: ${r.status}`).join(" · ")}
+          </div>
+        ) : null}
+        {status.kind === "queued" ? (
+          <div className="banner info" style={{ fontSize: 13 }}>
+            Job <code className="inlineCode">{status.jobId}</code> queued. {" "}
+            <a href={`/jobs/${status.jobId}`}>Track progress →</a>
           </div>
         ) : null}
 

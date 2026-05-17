@@ -471,6 +471,79 @@ class ReportRequest(BaseModel):
     kind: Literal["markdown", "json"] = "markdown"
 
 
+# ---------------------------------------------------------------------------
+# Jobs (async scans + pipelines)
+# ---------------------------------------------------------------------------
+
+JobStatus = Literal["queued", "running", "completed", "failed", "blocked", "partial"]
+
+
+class ScanJob(BaseModel):
+    """Background job covering a single scan submission or a multi-stage pipeline.
+
+    Persisted alongside the actual ScannerRun records so the UI can poll
+    one endpoint for overall progress while individual runs accumulate on
+    /scans.
+    """
+
+    id: str
+    project_id: str
+    kind: Literal["scan", "pipeline"] = "scan"
+    pipeline_id: str | None = None
+    status: JobStatus = "queued"
+    scan_request: dict[str, Any] | None = None
+    run_ids: list[str] = Field(default_factory=list)
+    findings_created: int = 0
+    error: str | None = None
+    progress_text: str | None = None
+    progress_percent: int = 0
+    backend: Literal["inline_thread", "rq"] = "inline_thread"
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    is_demo_data: bool = False
+
+
+class PipelineStage(BaseModel):
+    """A single stage inside a recon / audit pipeline."""
+
+    name: str
+    scanner: str
+    mode: ScanMode = ScanMode.passive
+    input_source: Literal["target", "previous_assets"] = "target"
+    max_followups: int = Field(default=20, ge=1, le=200)
+    description: str | None = None
+
+
+class Pipeline(BaseModel):
+    """A named chain of scanner stages."""
+
+    id: str
+    name: str
+    description: str
+    stages: list[PipelineStage]
+    requires_authorized_scope: bool = False
+    risk_level: Literal["low", "medium", "high"] = "low"
+    tags: list[str] = Field(default_factory=list)
+
+
+class PipelineRunRequest(BaseModel):
+    project_id: str
+    pipeline_id: str
+    target: str
+    authorized_scope: str | None = None
+    explicit_authorization: bool = False
+    confirm_high_noise: bool = False
+
+
+class AsyncScanResponse(BaseModel):
+    job_id: str
+    status: JobStatus
+    backend: Literal["inline_thread", "rq"]
+    poll_url: str
+    message: str | None = None
+
+
 class ProjectCreate(BaseModel):
     """Request body for `POST /api/projects`.
 

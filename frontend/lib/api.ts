@@ -463,4 +463,106 @@ export function jsonReportUrl(projectId: string) {
   return `${API_URL}/api/reports/${projectId}/json`;
 }
 
+// ---- Jobs + pipelines (Round A) ----
+
+export type JobStatus = "queued" | "running" | "completed" | "failed" | "blocked" | "partial";
+
+export type ScanJob = {
+  id: string;
+  project_id: string;
+  kind: "scan" | "pipeline";
+  pipeline_id?: string | null;
+  status: JobStatus;
+  scan_request?: Record<string, unknown> | null;
+  run_ids: string[];
+  findings_created: number;
+  error?: string | null;
+  progress_text?: string | null;
+  progress_percent: number;
+  backend: "inline_thread" | "rq";
+  created_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  is_demo_data?: boolean;
+};
+
+export type AsyncScanResponse = {
+  job_id: string;
+  status: JobStatus;
+  backend: "inline_thread" | "rq";
+  poll_url: string;
+  message?: string | null;
+};
+
+export type PipelineStage = {
+  name: string;
+  scanner: string;
+  mode: "passive" | "active" | "lab";
+  input_source: "target" | "previous_assets";
+  max_followups: number;
+  description?: string | null;
+};
+
+export type Pipeline = {
+  id: string;
+  name: string;
+  description: string;
+  stages: PipelineStage[];
+  requires_authorized_scope: boolean;
+  risk_level: "low" | "medium" | "high";
+  tags: string[];
+};
+
+export type PipelineRunRequest = {
+  project_id: string;
+  pipeline_id: string;
+  target: string;
+  authorized_scope?: string | null;
+  explicit_authorization?: boolean;
+  confirm_high_noise?: boolean;
+};
+
+export async function startScanAsync(payload: StartScanRequest): Promise<AsyncScanResponse> {
+  const response = await fetch(`${API_URL}/api/scans/async`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `POST /api/scans/async returned ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function getJob(id: string): Promise<ScanJob> {
+  return getJson<ScanJob>(`/api/jobs/${id}`);
+}
+
+export async function listJobs(projectId?: string): Promise<ScanJob[]> {
+  const search = new URLSearchParams();
+  if (projectId) search.set("project_id", projectId);
+  const query = search.toString();
+  return getJson<ScanJob[]>(`/api/jobs${query ? `?${query}` : ""}`);
+}
+
+export async function listPipelines(): Promise<Pipeline[]> {
+  return getJson<Pipeline[]>(`/api/pipelines`);
+}
+
+export async function runPipeline(payload: PipelineRunRequest): Promise<AsyncScanResponse> {
+  const response = await fetch(`${API_URL}/api/pipelines/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `POST /api/pipelines/run returned ${response.status}`);
+  }
+  return response.json();
+}
+
 export const ASURA_API_URL = API_URL;

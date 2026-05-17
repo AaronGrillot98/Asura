@@ -9,10 +9,12 @@ import {
   FileText,
   GitBranch,
   Home,
+  Layers,
   Package,
   Radar,
   ScrollText,
   ShieldCheck,
+  Workflow,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GlobalSearch, GlobalSearchTrigger } from "@/components/global-search";
@@ -41,6 +43,8 @@ const NAV: NavSection[] = [
     label: "Operations",
     entries: [
       { href: "/scans", label: "Scanner Runs", icon: <Activity size={16} /> },
+      { href: "/jobs", label: "Background Jobs", icon: <Layers size={16} /> },
+      { href: "/pipelines", label: "Pipelines", icon: <Workflow size={16} /> },
       { href: "/findings", label: "Findings", icon: <ShieldCheck size={16} /> },
       { href: "/attack-paths", label: "Attack Paths", icon: <GitBranch size={16} /> },
       { href: "/reports", label: "Reports", icon: <FileText size={16} /> },
