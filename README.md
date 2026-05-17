@@ -213,20 +213,44 @@ Documentation index:
 - [Demo mode](docs/DEMO_MODE.md)
 - [QA checklist](docs/QA_CHECKLIST.md)
 
+## Persistence
+
+By default Asura uses an in-memory store seeded from `demo_store` on each
+restart. To persist projects, scans, findings, evidence, and audit logs
+across restarts:
+
+```bash
+# SQLite (zero-config, file at ./asura.db)
+export ASURA_USE_SQL=1
+
+# Or Postgres (real production)
+export ASURA_USE_SQL=1
+export DATABASE_URL=postgresql+psycopg://asura:asura@db:5432/asura
+```
+
+Tables are created automatically on first boot. The seed only runs when
+the demo project is missing, so restarts are idempotent. Templates and
+auth profiles keep their own encrypted file-system storage independent of
+this toggle (see `templates/` and `auth/`).
+
+Alembic migrations are roadmapped for when the schema starts evolving;
+the current build uses `Base.metadata.create_all()` since every field
+that isn't an indexed query column lives in a JSON `payload` column.
+
 ## Roadmap
 
 Active development. Next moves, in priority order:
 
-1. **Custom Nuclei templates** — drag-drop upload, then "Run with these templates" on the scan form.
-2. **More catalog tools wired** — Fuzzers (ffuf · gobuster · dirsearch) and the K8s/cloud cluster (kube-bench · prowler · kubescape).
-3. **Persistence layer** — SQLAlchemy + Alembic + Postgres behind the `Repository[T]` interface. Repo abstraction is already in place; just need the SQL implementation.
-4. **Authenticated scanning** — JWT/cookie injection for Nuclei + ZAP so they can scan behind a login.
-5. **LLM-assisted triage in PentestBrain** — same citation guard preserved. Bring up the signal-to-noise ratio across hundreds of findings.
-6. **Burp / mitmproxy traffic ingestion** — browse with the proxy, automatically build a target inventory.
-7. **SARIF import/export everywhere** — CI integration becomes one HTTP POST.
-8. **PDF report rendering**.
-9. **CI workflow** (GitHub Actions) running pytest + lint + npm audit on PRs.
-10. **Signed reports + Merkle-proof immutable evidence references**.
+1. **Alembic migrations** — formalise schema evolution now that persistence is live.
+2. **ZAP authenticated scanning** — context files / login users so ZAP can scan past a login (parity with the slice-11 nuclei + httpx auth support).
+3. **More catalog tools wired** — feroxbuster, nikto, wapiti, retire.js, schemathesis, jwt-tool, polaris, docker-bench.
+4. **LLM-assisted triage in PentestBrain** — same citation guard preserved. Bring up the signal-to-noise ratio across hundreds of findings.
+5. **Burp / mitmproxy traffic ingestion** — browse with the proxy, automatically build a target inventory.
+6. **SARIF import/export everywhere** — CI integration becomes one HTTP POST.
+7. **PDF report rendering**.
+8. **CI workflow** (GitHub Actions) running pytest + lint + npm audit on PRs.
+9. **Signed reports + Merkle-proof immutable evidence references**.
+10. **Multi-user workspaces + JWT/SSO auth** — Asura's own access control.
 
 ## Contributing
 

@@ -1,7 +1,7 @@
 """Seed the repository container from the demo data set.
 
-Kept separate from `__init__.py` to avoid import cycles and to make swapping
-out the demo seed (or pointing at a SQL backend) a one-line change.
+Idempotent so the SQL backend doesn't duplicate seed rows on every
+restart — if the demo project already exists, we leave the repo alone.
 """
 from __future__ import annotations
 
@@ -11,7 +11,13 @@ from . import Repos
 
 
 def seed_repos(repos: Repos) -> None:
-    """Populate the given Repos container from `app.services.demo_store`."""
+    """Populate `repos` from `demo_store` if it isn't seeded yet."""
+    # Idempotency check: if the demo project is already in the repo, assume
+    # everything else is too. This is the cheapest way to make `init_db` +
+    # `seed_repos` safe to call on every startup in SQL mode.
+    if repos.projects.get(demo_store.PROJECT.id) is not None:
+        return
+
     repos.workspaces.add(demo_store.WORKSPACE)
     repos.projects.add(demo_store.PROJECT)
     repos.assets.add_many(demo_store.ASSETS)
@@ -25,7 +31,7 @@ def seed_repos(repos: Repos) -> None:
         for ev in finding.evidence:
             repos.evidence.add(ev)
 
-    # Seed any extra collections the demo_store exposes (added in Phase K).
+    # Seed any extra collections the demo_store exposes.
     for attr, repo in (
         ("TARGETS", repos.targets),
         ("SCOPES", repos.scopes),
