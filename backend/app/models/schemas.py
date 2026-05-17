@@ -411,6 +411,8 @@ class ToolDefinition(BaseModel):
     requires_authorized_scope: bool = False
     requires_lab_mode: bool = False
     docker_available: bool = False
+    docker_image: str | None = None
+    target_kind: Literal["url", "host", "filesystem", "image", "cluster", "mixed"] = "url"
     supported_os: list[str] = Field(default_factory=list)
     commands: list[ToolCommand] = Field(default_factory=list)
     recommended_use: str

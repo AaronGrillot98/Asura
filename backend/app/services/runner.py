@@ -1,27 +1,37 @@
 """Scanner runner.
 
-The runner is real-by-default: when a scan request arrives, Asura tries to
-execute the registered command for the scanner and parse the output into
-normalized Findings + Evidence.
+The runner is real-by-default and picks an execution path in this order:
 
-`SubprocessRunner` is the default. `DemoRunner` returns clearly-labelled
-seeded output and is only used when `ASURA_DEMO_MODE=1` is set (handy for
-screenshots, training, and air-gapped review where you don't want a process
-to run).
+1. `ASURA_DEMO_MODE=1` → return seeded output, never spawn a process.
+2. `ASURA_PREFER_DOCKER=1` AND the tool has a `docker_image` AND `docker`
+   is on PATH → run in a container.
+3. Local binary on PATH → run as a subprocess.
+4. Tool has a `docker_image` AND `docker` is on PATH → run in a container
+   (automatic fallback when the local binary is missing).
+5. Else → return a `failed` ScannerRun with the install hint.
+
+For tools whose target is a local filesystem path (`target_kind:
+filesystem` or `mixed` when the supplied target resolves to a path on
+disk), the Docker path bind-mounts the target's parent directory at
+`/scan` read-only and rewrites the command's target argument to that
+mount point. URL / host targets are passed through unchanged.
 
 `run_scanner()` is the public entry point. When called with a `repos`
-container it completes the loop end-to-end: executes the tool, writes the
-raw payload to the evidence vault with a sha256 `content_hash`, invokes the
-parser registered for the tool, deduplicates findings by fingerprint, and
-persists `Finding` + `Evidence` records to the repositories.
+container it completes the loop end-to-end: executes the tool, writes
+the raw payload to the evidence vault with a sha256 `content_hash`,
+invokes the parser registered for the tool, deduplicates findings by
+fingerprint, and persists `Finding` + `Evidence` records to the
+repositories.
 """
 from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
 
@@ -33,11 +43,18 @@ from app.services.evidence_store import write_evidence_file, content_hash
 from app.services.tool_registry import load_arsenal
 
 DEMO_MODE_ENV_VAR = "ASURA_DEMO_MODE"
+PREFER_DOCKER_ENV_VAR = "ASURA_PREFER_DOCKER"
+DOCKER_MOUNT_POINT = "/scan"
 
 
 def demo_mode_enabled() -> bool:
     """True when the operator has explicitly chosen seeded demo output."""
     return os.environ.get(DEMO_MODE_ENV_VAR, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def prefer_docker_enabled() -> bool:
+    """True when the operator wants Docker even if the local binary exists."""
+    return os.environ.get(PREFER_DOCKER_ENV_VAR, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def validate_target(target: str) -> str | None:
@@ -107,26 +124,98 @@ def _decode_output(stdout: str) -> Any:
         return stdout
 
 
-def _install_hint_for(scanner: str) -> str:
-    """Pull the registry's install hint (and docker note if available)."""
+def _arsenal_tool(scanner: str):
+    """Return the registry entry for `scanner`, or None."""
     try:
         arsenal = load_arsenal()
     except Exception:  # pragma: no cover — defensive
-        return ""
+        return None
     for tool in arsenal.tools:
-        if tool.id != scanner:
-            continue
-        parts: list[str] = []
-        if tool.install_hint:
-            parts.append(tool.install_hint)
-        if tool.docker_available:
-            parts.append(
-                "A Docker image is registered for this tool — pull it from the project's official image and re-run."
-            )
-        if tool.official_url:
-            parts.append(f"Docs: {tool.official_url}")
-        return " ".join(parts)
-    return ""
+        if tool.id == scanner:
+            return tool
+    return None
+
+
+def _install_hint_for(scanner: str) -> str:
+    """Pull the registry's install hint (and docker note if available)."""
+    tool = _arsenal_tool(scanner)
+    if tool is None:
+        return ""
+    parts: list[str] = []
+    if tool.install_hint:
+        parts.append(tool.install_hint)
+    if tool.docker_image:
+        parts.append(f"Or pull the registered Docker image: `docker pull {tool.docker_image}`.")
+    elif tool.docker_available:
+        parts.append(
+            "A Docker image is registered for this tool — pull it from the project's official image and re-run."
+        )
+    if tool.official_url:
+        parts.append(f"Docs: {tool.official_url}")
+    return " ".join(parts)
+
+
+def _looks_like_filesystem_target(target: str) -> bool:
+    """Heuristic: is this target a local filesystem path?
+
+    Strict — only return True when the leading character clearly indicates a
+    filesystem path. URL/image refs (https://, git://, ghcr.io/...) and bare
+    hostnames are treated as non-filesystem.
+    """
+    t = target.strip()
+    if not t:
+        return False
+    if "://" in t:  # url-like (https://, git://, ...)
+        return False
+    if t.startswith(("/", "~", "./", "../", "\\\\")):
+        return True
+    if re.match(r"^[A-Za-z]:[\\/]", t):  # Windows C:\ or C:/
+        return True
+    return False
+
+
+def _docker_mount_args(target: str) -> tuple[list[str], str]:
+    """Return (mount-args, rewritten target) for a filesystem target.
+
+    Bind-mounts the absolute resolved path of `target` (or its parent if it's
+    a file) at DOCKER_MOUNT_POINT inside the container, read-only.
+    """
+    path = Path(target).expanduser().resolve()
+    if path.is_dir():
+        host_dir = path
+        in_container = DOCKER_MOUNT_POINT
+    else:
+        host_dir = path.parent
+        in_container = f"{DOCKER_MOUNT_POINT}/{path.name}"
+    return (
+        ["-v", f"{host_dir}:{DOCKER_MOUNT_POINT}:ro"],
+        in_container,
+    )
+
+
+def _build_docker_argv(
+    *,
+    tool,
+    target: str,
+    inner_argv: list[str],
+) -> tuple[list[str], str]:
+    """Return (docker argv, target-as-used-in-command) for a single scan."""
+    target_kind = (tool.target_kind or "url")
+    mount_args: list[str] = []
+    final_target = target
+    if target_kind in {"filesystem", "mixed"} and _looks_like_filesystem_target(target):
+        mount_args, final_target = _docker_mount_args(target)
+
+    # Substitute the rewritten target inside the inner argv where the
+    # registry placeholder used to live.
+    rewritten_inner = [arg.replace(target, final_target) if target != final_target else arg for arg in inner_argv]
+    # Drop the executable from inner_argv if it matches the tool executable;
+    # many official images already set ENTRYPOINT.
+    if rewritten_inner and tool.executable and rewritten_inner[0] == tool.executable:
+        rewritten_inner = rewritten_inner[1:]
+
+    argv = ["docker", "run", "--rm", "-i"] + mount_args + [tool.docker_image] + rewritten_inner
+    return argv, final_target
 
 
 def _persist_results(
@@ -211,67 +300,48 @@ def _demo_run(project_id: str, scanner: str, target: str, mode: str) -> ScannerR
     )
 
 
-def _subprocess_run(
+def _execute_and_parse(
     *,
     repos,
     project_id: str,
     scanner: str,
     target: str,
     mode: str,
+    args: list[str],
+    path_label: str,
 ) -> ScannerRun:
-    executable = SCANNERS[scanner].executable
-    if shutil.which(executable) is None:
-        hint = _install_hint_for(scanner)
-        message = f"{executable} is not installed on this host."
-        if hint:
-            message = f"{message} {hint}"
-        message = f"{message} Set {DEMO_MODE_ENV_VAR}=1 to view the dashboard with seeded data while you install."
-        return _new_run(
-            project_id=project_id,
-            scanner=scanner,
-            target=target,
-            mode=mode,
-            status="failed",
-            message=message,
-        )
+    """Spawn the subprocess, decode output, run the parser, persist results.
 
-    args = build_command(scanner, target, mode)
+    `args` is the already-built argv (for either the local binary or
+    `docker run …`). `path_label` describes which execution path was taken
+    and is appended to ScannerRun.message for operator visibility.
+    """
     try:
         result = subprocess.run(args, capture_output=True, text=True, timeout=900, check=False)
     except subprocess.TimeoutExpired as exc:  # pragma: no cover — defensive
         return _new_run(
-            project_id=project_id,
-            scanner=scanner,
-            target=target,
-            mode=mode,
+            project_id=project_id, scanner=scanner, target=target, mode=mode,
             status="failed",
-            message=f"{scanner} timed out after {exc.timeout}s.",
+            message=f"{scanner} timed out after {exc.timeout}s ({path_label}).",
             args=args,
         )
     except FileNotFoundError as exc:  # pragma: no cover — defensive
         return _new_run(
-            project_id=project_id,
-            scanner=scanner,
-            target=target,
-            mode=mode,
+            project_id=project_id, scanner=scanner, target=target, mode=mode,
             status="failed",
-            message=f"{scanner} could not be launched: {exc}.",
+            message=f"{scanner} could not be launched: {exc} ({path_label}).",
             args=args,
         )
 
     raw_payload = _decode_output(result.stdout)
     status = "completed" if result.returncode == 0 else "failed"
 
-    # If the scanner failed and produced nothing, surface stderr.
     if raw_payload is None and result.returncode != 0:
         stderr_excerpt = (result.stderr or "").strip()[-1000:]
         return _new_run(
-            project_id=project_id,
-            scanner=scanner,
-            target=target,
-            mode=mode,
+            project_id=project_id, scanner=scanner, target=target, mode=mode,
             status="failed",
-            message=stderr_excerpt or f"{scanner} exited with {result.returncode} and produced no output.",
+            message=stderr_excerpt or f"{scanner} exited with {result.returncode} and produced no output ({path_label}).",
             args=args,
             exit_code=result.returncode,
         )
@@ -284,40 +354,60 @@ def _subprocess_run(
             try:
                 findings = parser_fn(raw_payload, project_id=project_id, is_demo_data=False)
             except Exception as exc:  # pragma: no cover — defensive
-                findings = []
-                stderr_excerpt = f"Parser '{parser_name}' raised {type(exc).__name__}: {exc}"
                 return _new_run(
-                    project_id=project_id,
-                    scanner=scanner,
-                    target=target,
-                    mode=mode,
+                    project_id=project_id, scanner=scanner, target=target, mode=mode,
                     status="failed",
-                    message=stderr_excerpt,
+                    message=f"Parser '{parser_name}' raised {type(exc).__name__}: {exc} ({path_label}).",
                     args=args,
                     exit_code=result.returncode,
                 )
 
     run = _new_run(
-        project_id=project_id,
-        scanner=scanner,
-        target=target,
-        mode=mode,
+        project_id=project_id, scanner=scanner, target=target, mode=mode,
         status=status,
-        message=f"{scanner} completed ({result.returncode}); {len(findings)} finding(s) parsed.",
+        message=f"{scanner} completed ({result.returncode}); {len(findings)} finding(s) parsed ({path_label}).",
         args=args,
         exit_code=result.returncode,
     )
 
     if repos is not None:
         run = _persist_results(
-            repos=repos,
-            run=run,
-            findings=findings,
-            raw_payload=raw_payload,
-            args=args,
+            repos=repos, run=run, findings=findings,
+            raw_payload=raw_payload, args=args,
         )
 
     return run
+
+
+def _local_binary_path(scanner: str) -> str | None:
+    """Return the local binary path if it's on PATH, else None."""
+    executable = SCANNERS[scanner].executable
+    return shutil.which(executable)
+
+
+def _docker_available_for(scanner: str):
+    """Return (tool, docker_path) if Docker can run this scanner, else (tool, None)."""
+    tool = _arsenal_tool(scanner)
+    if tool is None or not tool.docker_image:
+        return tool, None
+    docker_path = shutil.which("docker")
+    if docker_path is None:
+        return tool, None
+    return tool, docker_path
+
+
+def _failed_no_runtime(project_id: str, scanner: str, target: str, mode: str) -> ScannerRun:
+    """Both local binary and Docker are unavailable — return a helpful failure."""
+    executable = SCANNERS[scanner].executable
+    hint = _install_hint_for(scanner)
+    message = f"{executable} is not installed on this host, and Docker is not available either."
+    if hint:
+        message = f"{message} {hint}"
+    message = f"{message} Set {DEMO_MODE_ENV_VAR}=1 to view the dashboard with seeded data while you install."
+    return _new_run(
+        project_id=project_id, scanner=scanner, target=target, mode=mode,
+        status="failed", message=message,
+    )
 
 
 def run_scanner(
@@ -329,12 +419,17 @@ def run_scanner(
     *,
     repos=None,
     force_demo: Optional[bool] = None,
+    force_docker: Optional[bool] = None,
 ) -> ScannerRun:
     """Execute a registered scanner.
 
-    Real subprocess execution is the default. Set `ASURA_DEMO_MODE=1` to
-    return seeded demo content instead. Tests can override via
-    `force_demo=True/False`.
+    Decision tree (top to bottom):
+      1. ASURA_DEMO_MODE=1 (or force_demo=True) → seeded output, no process
+      2. ASURA_PREFER_DOCKER=1 (or force_docker=True) AND tool has
+         docker_image AND docker on PATH → Docker
+      3. Local binary on PATH → subprocess
+      4. Tool has docker_image AND docker on PATH → Docker (automatic fallback)
+      5. Else → failed with install hint
 
     When `repos` is provided, the runner persists the resulting
     `ScannerRun`, `Evidence` records, and normalized `Finding` records
@@ -366,10 +461,31 @@ def run_scanner(
     use_demo = demo_mode_enabled() if force_demo is None else force_demo
     if use_demo:
         return _demo_run(project_id, scanner, target, mode)
-    return _subprocess_run(
-        repos=repos,
-        project_id=project_id,
-        scanner=scanner,
-        target=target,
-        mode=mode,
-    )
+
+    prefer_docker = prefer_docker_enabled() if force_docker is None else force_docker
+    tool, docker_path = _docker_available_for(scanner)
+    local_path = _local_binary_path(scanner)
+    inner_argv = build_command(scanner, target, mode)
+
+    # Path selection.
+    if prefer_docker and docker_path and tool is not None:
+        argv, _ = _build_docker_argv(tool=tool, target=target, inner_argv=inner_argv)
+        return _execute_and_parse(
+            repos=repos, project_id=project_id, scanner=scanner, target=target,
+            mode=mode, args=argv,
+            path_label=f"via Docker image {tool.docker_image}",
+        )
+    if local_path:
+        return _execute_and_parse(
+            repos=repos, project_id=project_id, scanner=scanner, target=target,
+            mode=mode, args=inner_argv,
+            path_label=f"via local binary {local_path}",
+        )
+    if docker_path and tool is not None:
+        argv, _ = _build_docker_argv(tool=tool, target=target, inner_argv=inner_argv)
+        return _execute_and_parse(
+            repos=repos, project_id=project_id, scanner=scanner, target=target,
+            mode=mode, args=argv,
+            path_label=f"via Docker image {tool.docker_image} (local binary not installed)",
+        )
+    return _failed_no_runtime(project_id, scanner, target, mode)

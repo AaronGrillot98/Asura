@@ -23,6 +23,8 @@ tools:
     safe_default: false
     requires_authorized_scope: true
     docker_available: true
+    docker_image: instrumentisto/nmap:latest
+    target_kind: host
     supported_os: [linux, macos, windows]
     commands:
       - mode: active
@@ -50,6 +52,8 @@ tools:
     safe_default: true
     requires_authorized_scope: true
     docker_available: true
+    docker_image: projectdiscovery/nuclei:latest
+    target_kind: url
     supported_os: [linux, macos, windows]
     commands:
       - mode: passive
@@ -79,6 +83,8 @@ tools:
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
+    docker_image: semgrep/semgrep:latest
+    target_kind: filesystem
     supported_os: [linux, macos, windows]
     commands:
       - mode: passive
@@ -108,6 +114,8 @@ tools:
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
+    docker_image: aquasec/trivy:latest
+    target_kind: mixed
     supported_os: [linux, macos, windows]
     commands:
       - mode: passive
@@ -137,6 +145,8 @@ tools:
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
+    docker_image: zricethezav/gitleaks:latest
+    target_kind: filesystem
     supported_os: [linux, macos, windows]
     commands:
       - mode: passive
@@ -166,6 +176,8 @@ tools:
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
+    docker_image: ghcr.io/google/osv-scanner:latest
+    target_kind: filesystem
     supported_os: [linux, macos, windows]
     commands:
       - mode: passive
@@ -195,6 +207,8 @@ tools:
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
+    docker_image: bridgecrew/checkov:latest
+    target_kind: filesystem
     supported_os: [linux, macos, windows]
     commands:
       - mode: passive
@@ -224,6 +238,8 @@ tools:
     safe_default: true
     requires_authorized_scope: true
     docker_available: true
+    docker_image: softwaresecurityproject/zap-stable:latest
+    target_kind: url
     supported_os: [linux, macos, windows]
     commands:
       - mode: passive
@@ -253,6 +269,8 @@ tools:
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
+    docker_image: anchore/syft:latest
+    target_kind: mixed
     supported_os: [linux, macos, windows]
     commands:
       - mode: passive
@@ -282,6 +300,8 @@ tools:
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
+    docker_image: anchore/grype:latest
+    target_kind: mixed
     supported_os: [linux, macos, windows]
     commands:
       - mode: passive
@@ -382,6 +402,8 @@ tools:
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
+    docker_image: projectdiscovery/subfinder:latest
+    target_kind: host
     supported_os: [linux, macos, windows]
     commands:
       - mode: passive
@@ -407,6 +429,8 @@ tools:
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
+    docker_image: caffix/amass:latest
+    target_kind: host
     supported_os: [linux, macos, windows]
     commands:
       - mode: passive
@@ -432,6 +456,8 @@ tools:
     safe_default: true
     requires_authorized_scope: true
     docker_available: true
+    docker_image: projectdiscovery/httpx:latest
+    target_kind: url
     supported_os: [linux, macos, windows]
     commands:
       - mode: active
@@ -457,6 +483,8 @@ tools:
     safe_default: false
     requires_authorized_scope: true
     docker_available: true
+    docker_image: projectdiscovery/naabu:latest
+    target_kind: host
     supported_os: [linux, macos, windows]
     commands:
       - mode: active
@@ -482,6 +510,8 @@ tools:
     safe_default: true
     requires_authorized_scope: true
     docker_available: true
+    docker_image: projectdiscovery/dnsx:latest
+    target_kind: host
     supported_os: [linux, macos, windows]
     commands:
       - mode: active
@@ -507,6 +537,8 @@ tools:
     safe_default: false
     requires_authorized_scope: true
     docker_available: true
+    docker_image: projectdiscovery/katana:latest
+    target_kind: url
     supported_os: [linux, macos, windows]
     commands:
       - mode: active
@@ -684,6 +716,8 @@ tools:
     safe_default: true
     requires_authorized_scope: true
     docker_available: true
+    docker_image: projectdiscovery/tlsx:latest
+    target_kind: host
     supported_os: [linux, macos, windows]
     commands:
       - mode: active
@@ -709,6 +743,8 @@ tools:
     safe_default: false
     requires_authorized_scope: true
     docker_available: true
+    docker_image: projectdiscovery/shuffledns:latest
+    target_kind: host
     supported_os: [linux, macos, windows]
     commands:
       - mode: active
@@ -1034,6 +1070,8 @@ tools:
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
+    docker_image: bearer/bearer:latest
+    target_kind: filesystem
     supported_os: [linux, macos]
     commands:
       - mode: passive
@@ -1059,6 +1097,8 @@ tools:
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
+    docker_image: trufflesecurity/trufflehog:latest
+    target_kind: filesystem
     supported_os: [linux, macos, windows]
     commands:
       - mode: passive

@@ -21,6 +21,29 @@ parsers will replace this when richer normalization is warranted (TLS
 metadata for tlsx, technology fingerprints for whatweb / webanalyze).
 
 
+## Execution paths
+
+`run_scanner` picks one of these paths per scan, in order:
+
+1. **Demo** — `ASURA_DEMO_MODE=1` returns seeded output, no subprocess
+   spawned. `ScannerRun.is_demo_data = true`.
+2. **Docker (preferred)** — `ASURA_PREFER_DOCKER=1` AND the tool has a
+   `docker_image` AND `docker` is on PATH. Runs in a container even when
+   the local binary exists.
+3. **Local binary** — the tool's `executable` is on PATH. Runs as a
+   normal subprocess.
+4. **Docker (fallback)** — local binary missing, but the tool has a
+   `docker_image` AND `docker` is on PATH. Runs in a container
+   automatically.
+5. **Failed with hint** — neither runtime is available. Returns
+   `status=failed` with the registry's `install_hint`, the Docker image
+   that would be used, and a pointer to `ASURA_DEMO_MODE=1`.
+
+The chosen path is recorded in `ScannerRun.message` (e.g. *"semgrep
+completed (0); 12 finding(s) parsed (via Docker image
+semgrep/semgrep:latest)."*) and the `args` field captures the exact
+argv used.
+
 ## The end-to-end loop
 
 For each scanner in the request, `app.services.runner.run_scanner`:
@@ -28,9 +51,7 @@ For each scanner in the request, `app.services.runner.run_scanner`:
 1. Validates the target (no control characters, no option-prefix
    injection, length capped).
 2. Runs the scope guard for the project + mode (passive / active / lab).
-3. Resolves the `executable` from PATH. If missing, returns a `failed`
-   `ScannerRun` with the install hint from `tools.yaml` and a pointer to
-   `ASURA_DEMO_MODE=1` so the dashboard can still be browsed.
+3. Picks an execution path (see above).
 4. Builds an argv-only command from the registry's template, never a
    shell string.
 5. Executes via `subprocess.run(args, capture_output=True, timeout=900)`.
@@ -44,6 +65,55 @@ For each scanner in the request, `app.services.runner.run_scanner`:
    `repos.evidence`. Recurrences just bump `last_seen`.
 9. Returns the `ScannerRun` with `evidence_ids`, `findings_created`,
    `args`, `exit_code`, and a one-line message.
+
+## Docker execution
+
+When a tool runs via Docker:
+
+- The runner spawns `docker run --rm -i [mounts] <docker_image> <args>`.
+- For tools whose `target_kind` is `filesystem` or `mixed` (semgrep,
+  gitleaks, trivy fs, syft, grype, checkov, bearer, trufflehog), the
+  target's directory is **bind-mounted read-only at `/scan`** and the
+  command's target argument is rewritten to that mount point.
+- For tools whose `target_kind` is `url` / `host`, no mount is added.
+- The container's stdout is captured the same way as a local subprocess
+  and fed through the same parser pipeline.
+- No `--privileged`, no host socket mount, no extra capabilities.
+  Network access uses Docker's default bridge driver.
+
+To override an image, edit the tool's `docker_image` field in
+`backend/registry/tools.yaml` (e.g. pin a specific tag). The 20 tools
+that ship with images today are listed below.
+
+## Wired tools with Docker images
+
+| Tool | Image | Target kind |
+|------|-------|-------------|
+| nmap | `instrumentisto/nmap:latest` | host |
+| nuclei | `projectdiscovery/nuclei:latest` | url |
+| semgrep | `semgrep/semgrep:latest` | filesystem |
+| trivy | `aquasec/trivy:latest` | mixed |
+| gitleaks | `zricethezav/gitleaks:latest` | filesystem |
+| osv-scanner | `ghcr.io/google/osv-scanner:latest` | filesystem |
+| checkov | `bridgecrew/checkov:latest` | filesystem |
+| zap | `softwaresecurityproject/zap-stable:latest` | url |
+| syft | `anchore/syft:latest` | mixed |
+| grype | `anchore/grype:latest` | mixed |
+| bearer | `bearer/bearer:latest` | filesystem |
+| trufflehog | `trufflesecurity/trufflehog:latest` | filesystem |
+| subfinder | `projectdiscovery/subfinder:latest` | host |
+| httpx | `projectdiscovery/httpx:latest` | url |
+| naabu | `projectdiscovery/naabu:latest` | host |
+| amass | `caffix/amass:latest` | host |
+| dnsx | `projectdiscovery/dnsx:latest` | host |
+| katana | `projectdiscovery/katana:latest` | url |
+| tlsx | `projectdiscovery/tlsx:latest` | host |
+| shuffledns | `projectdiscovery/shuffledns:latest` | host |
+
+Language-specific tools (bandit, pip-audit, npm-audit, cargo-audit,
+govulncheck, gosec, brakeman, eslint-security) don't ship Docker images
+because users running them typically already have the language toolchain
+installed. Their install hints point at `pipx`, `cargo`, `go install`, etc.
 
 ## Demo mode
 

@@ -39,26 +39,36 @@ See [QUICKSTART.md](QUICKSTART.md) and [INSTALL.md](INSTALL.md) for non-Docker s
 
 ## Running your first real scan
 
-The fastest path is a passive Semgrep run against a local checkout:
+The fastest path is a passive Semgrep run against a local checkout.
+You don't even need to install Semgrep if you have Docker:
 
 ```bash
-# 1. Install semgrep (one-time)
+# Option A: install the tool locally
 pipx install semgrep
 
-# 2. Start Asura
+# Option B: use Docker (no local install needed)
+# Asura will automatically pull projectdiscovery/* and the other 19
+# registered images when the local binary is missing.
+
+# Start Asura
 cp .env.example .env
 docker compose up -d   # or: cd backend && uvicorn app.main:app &  cd frontend && npm run dev
 
-# 3. Open http://localhost:3000, click "Run scan" on the Command Center.
-#    Target: /path/to/a/local/repo
-#    Scanners: semgrep
-#    Mode: passive
-#    Submit.
+# Open http://localhost:3000, click "Run scan" on the Command Center.
+#   Target: /path/to/a/local/repo
+#   Scanners: semgrep
+#   Mode: passive
+#   Submit.
 ```
 
-The dashboard refreshes; you'll see a new scanner run, evidence written to
+The dashboard refreshes; you'll see a new scanner run (with a message
+ending in *"via local binary …"* or *"via Docker image …"* so you know
+which path took), evidence written to
 `evidence/<workspace>/<project>/<scan_id>/semgrep.json` with a sha256
 `content_hash`, and parsed findings appearing in the Findings page.
+
+Set `ASURA_PREFER_DOCKER=1` in your backend environment to always run
+scanners in containers even when the local binary exists.
 
 For the catalog of supported scanners + their install hints, see the
 Arsenal page (`/arsenal`). **26 tools are wired end-to-end** today:
