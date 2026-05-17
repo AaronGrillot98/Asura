@@ -22,7 +22,9 @@
 6. Export a Markdown or JSON report from `/reports`.
 7. Visit `/audit` to confirm every scope decision was recorded.
 
-No live vulnerable target is required for the demo. Set
-`ASURA_ENABLE_REAL_SCANNERS=1` to switch from `DemoRunner` to
-`SubprocessRunner` when you're ready to run real scans against authorized
-targets.
+No live vulnerable target is required to browse the demo content. When
+you're ready to run real scans against authorized targets, just install
+the scanner (e.g. `pipx install semgrep`) and click "Run scan" on the
+Command Center — real execution is the default. Set
+`ASURA_DEMO_MODE=1` to freeze every scan on seeded output (useful for
+screenshots and air-gapped review).

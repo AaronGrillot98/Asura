@@ -293,6 +293,30 @@ export async function getBlockedCapabilities(): Promise<BlockedCapabilities> {
   return getJson<BlockedCapabilities>(`/api/safety/blocked`);
 }
 
+export type StartScanRequest = {
+  project_id: string;
+  target: string;
+  scanners: string[];
+  mode: "passive" | "active" | "lab";
+  authorized_scope?: string | null;
+  explicit_authorization?: boolean;
+  confirm_high_noise?: boolean;
+};
+
+export async function startScan(payload: StartScanRequest): Promise<ScannerRun[]> {
+  const response = await fetch(`${API_URL}/api/scans`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `POST /api/scans returned ${response.status}`);
+  }
+  return response.json();
+}
+
 export function reportUrl(projectId: string) {
   return `${API_URL}/api/reports/${projectId}/markdown`;
 }

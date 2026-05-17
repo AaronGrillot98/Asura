@@ -12,9 +12,11 @@ Asura is organized around six layers:
    paths, audit, reports, targets, scopes, remediations, schedules,
    workspaces). A SQL backend can implement the same protocol later.
 4. **Tool registry + runner** — `backend/registry/tools.yaml` is validated
-   on load. The runner ships two implementations: `DemoRunner` (default,
-   never spawns a subprocess) and `SubprocessRunner` (opt-in via
-   `ASURA_ENABLE_REAL_SCANNERS=1`).
+   on load. The runner is real-by-default: it spawns the registered
+   subprocess, captures the output, invokes the parser, writes evidence
+   to disk with a sha256 content hash, and persists deduplicated findings
+   to the repositories. `ASURA_DEMO_MODE=1` flips it to seeded output for
+   air-gapped review and screenshots.
 5. **Parsers + evidence vault** — one parser per core runner under
    `backend/app/services/parsers/`. Raw payloads are persisted with a
    sha256 `content_hash`; see [EVIDENCE_VAULT.md](EVIDENCE_VAULT.md).

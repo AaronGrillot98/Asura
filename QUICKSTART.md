@@ -33,5 +33,5 @@ npm run dev -- --hostname 127.0.0.1 --port 3000
 
 ## Demo Scope
 
-The seeded demo project is `Acme FlightOps Demo` (project id `demo`). Active scans are only allowed for the configured demo targets and require explicit authorization. By default the runner is `DemoRunner`; set `ASURA_ENABLE_REAL_SCANNERS=1` to enable `SubprocessRunner`.
+The seeded demo project is `Acme FlightOps Demo` (project id `demo`). Active scans are only allowed for the configured demo targets and require explicit authorization. Real scanner execution is the default; set `ASURA_DEMO_MODE=1` if you want every scan to return seeded output instead.
 

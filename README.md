@@ -6,7 +6,7 @@
 
 Asura is an open-source, self-hosted security command center that orchestrates trusted scanners, normalizes evidence, correlates attack paths, and generates remediation-focused reports for authorized security testing.
 
-> **Status:** early development. The foundation (Pydantic models, repository layer, scope guard, 90-tool Arsenal, 10 core parsers, PentestBrain reasoning service, demo project, reports) is in place and the test suite is green. Real scanner execution is opt-in via `ASURA_ENABLE_REAL_SCANNERS=1`; until then `DemoRunner` powers the dashboard so contributors can iterate without installing 10+ tools locally.
+> **Status:** early development. Real scanner execution is the default — submit a scan from the Command Center and Asura runs the registered tool, persists the raw output to the evidence vault, invokes the parser, and writes normalized findings to the dashboard. Seeded demo content (the "Acme FlightOps" project) populates the UI out of the box so contributors can see the full flow before installing any scanners; `ASURA_DEMO_MODE=1` makes every subsequent scan return seeded output instead of spawning a real process.
 
 ## What Asura is
 
@@ -37,16 +37,46 @@ Then open:
 
 See [QUICKSTART.md](QUICKSTART.md) and [INSTALL.md](INSTALL.md) for non-Docker setups.
 
-## Demo mode
+## Running your first real scan
 
-Out of the box Asura runs in demo mode. The seeded Acme FlightOps project shows:
+The fastest path is a passive Semgrep run against a local checkout:
+
+```bash
+# 1. Install semgrep (one-time)
+pipx install semgrep
+
+# 2. Start Asura
+cp .env.example .env
+docker compose up -d   # or: cd backend && uvicorn app.main:app &  cd frontend && npm run dev
+
+# 3. Open http://localhost:3000, click "Run scan" on the Command Center.
+#    Target: /path/to/a/local/repo
+#    Scanners: semgrep
+#    Mode: passive
+#    Submit.
+```
+
+The dashboard refreshes; you'll see a new scanner run, evidence written to
+`evidence/<workspace>/<project>/<scan_id>/semgrep.json` with a sha256
+`content_hash`, and parsed findings appearing in the Findings page.
+
+For the catalog of supported scanners + their install hints, see the
+Arsenal page (`/arsenal`). The 10 core runners (nmap, nuclei, semgrep,
+trivy, gitleaks, osv-scanner, checkov, zap, syft, grype) are wired
+end-to-end. The remaining 80 catalog entries are registered as
+`integration_status: planned` until their runners + parsers land — see
+the roadmap.
+
+## Seeded demo data
+
+Out of the box Asura ships with the Acme FlightOps demo project so the dashboard isn't empty before you've run anything:
 
 - Critical-severity leaked-secret finding, vulnerable npm dependency, missing-auth code path, exposed admin route, weak CORS, container vulnerability, overbroad IAM policy, missing security headers, old TLS, and an API endpoint with no rate limiting.
 - Three correlated attack paths: **Potential account takeover chain**, **Container-to-service exposure chain**, **Cloud permission risk chain**.
 
-Every demo finding is flagged `is_demo_data: true` and the dashboard renders a "Demo mode" banner so the dashboard never falsely claims a real scan ran. See [docs/DEMO_MODE.md](docs/DEMO_MODE.md).
+Every seeded finding is flagged `is_demo_data: true` and the dashboard renders a "Demo mode" banner so it's always clear which data came from a real scan. Real runs you submit don't carry that flag; they appear alongside the seeded data and you can filter by `demo=true/false` on the Findings page. See [docs/DEMO_MODE.md](docs/DEMO_MODE.md) and [docs/SCANNER_RUNNERS.md](docs/SCANNER_RUNNERS.md).
 
-To switch to real scans, set `ASURA_ENABLE_REAL_SCANNERS=1` in the backend environment; see [docs/SCANNER_RUNNERS.md](docs/SCANNER_RUNNERS.md).
+If you'd rather keep the dashboard frozen on seeded content (useful for screenshots, demos, or air-gapped review), set `ASURA_DEMO_MODE=1` in the backend environment — every subsequent scan returns labelled seeded output instead of spawning a real process.
 
 ## Safety model
 

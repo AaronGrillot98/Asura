@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ArsenalSummary, AttackPath, Asset, DashboardSummary, Finding, ScannerRun, Severity, ToolDefinition } from "@/lib/api";
 import { reportUrl } from "@/lib/api";
+import { RunScanForm } from "@/components/run-scan-form";
 
 const severityWeight: Record<Severity, number> = {
   critical: 5,
@@ -315,14 +316,17 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
       ) : null}
         <header className="topbar">
           <div>
-            <span className="eyebrow">Workspace / Demo</span>
+            <span className="eyebrow">Workspace / {data.is_demo_data ? "Demo" : "Live"}</span>
             <h1>{data.project.name}</h1>
             <p>{data.project.description}</p>
           </div>
-          <a className="button" href={reportUrl(data.project.id)}>
-            <Download size={16} />
-            Export report
-          </a>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <RunScanForm projectId={data.project.id} />
+            <a className="button" href={reportUrl(data.project.id)}>
+              <Download size={16} />
+              Export report
+            </a>
+          </div>
         </header>
 
         <section className="metrics">

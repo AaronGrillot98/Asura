@@ -296,6 +296,7 @@ def start_scan(request: ScanRequest) -> list[ScannerRun]:
             target=request.target,
             mode=request.mode.value,
             authorized=request.explicit_authorization,
+            repos=repos,
         )
         repos.runs.add(run)
         runs.append(run)

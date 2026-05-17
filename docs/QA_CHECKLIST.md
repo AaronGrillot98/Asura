@@ -19,9 +19,15 @@ Run this before tagging a foundation release.
 - [ ] Reports: `POST /api/reports/demo` with `{"kind":"markdown"}` returns
       a body containing **Safety Statement**, **Authorization Statement**,
       and **Scope** sections.
-- [ ] Without `ASURA_ENABLE_REAL_SCANNERS=1`, no `subprocess.run` is
-      reached — `test_runner_modes.test_default_runner_is_demo_no_subprocess`
+- [ ] With `ASURA_DEMO_MODE=1`, no `subprocess.run` is reached —
+      `test_runner_modes.test_demo_mode_env_var_returns_seeded_run`
       enforces this.
+- [ ] Without `ASURA_DEMO_MODE`, the runner attempts real execution and
+      returns `failed` (with the install hint) when the binary is missing —
+      `test_runner_modes.test_default_runner_is_real_execution` enforces this.
+- [ ] Mocked end-to-end loop test
+      (`test_runner_loop.test_real_run_writes_evidence_and_creates_findings`)
+      verifies subprocess output → parser → evidence vault → findings repo.
 
 ## Frontend
 
