@@ -61,11 +61,23 @@ The dashboard refreshes; you'll see a new scanner run, evidence written to
 `content_hash`, and parsed findings appearing in the Findings page.
 
 For the catalog of supported scanners + their install hints, see the
-Arsenal page (`/arsenal`). The 10 core runners (nmap, nuclei, semgrep,
-trivy, gitleaks, osv-scanner, checkov, zap, syft, grype) are wired
-end-to-end. The remaining 80 catalog entries are registered as
-`integration_status: planned` until their runners + parsers land — see
-the roadmap.
+Arsenal page (`/arsenal`). **26 tools are wired end-to-end** today:
+
+- **Core engines (10)**: nmap, nuclei, semgrep, trivy, gitleaks,
+  osv-scanner, checkov, zap, syft, grype.
+- **AppSec / language packs (10)**: bandit, pip-audit, npm-audit,
+  cargo-audit, govulncheck, gosec, brakeman, eslint-security, bearer,
+  trufflehog.
+- **Recon (3 dedicated + 12 via shared discovery normalizer)**:
+  subfinder, httpx, naabu have dedicated parsers; amass, dnsx, katana,
+  gau, waybackurls, hakrawler, webanalyze, whatweb, wafw00f, tlsx,
+  shuffledns, assetfinder share a generic discovery parser that emits
+  one info-level finding per discovered host/URL/subdomain.
+- **Generic SARIF**: CodeQL and any tool emitting SARIF v2.1.0 to stdout.
+
+The remaining ~65 catalog entries are registered as
+`integration_status: planned` until their parsers land — see the
+roadmap.
 
 ## Seeded demo data
 

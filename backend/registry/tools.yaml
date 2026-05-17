@@ -1048,7 +1048,7 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: AGPL-3.0
     official_url: https://github.com/trufflesecurity/trufflehog
     executable: trufflehog

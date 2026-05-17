@@ -6,6 +6,7 @@ import { Play } from "lucide-react";
 import { startScan, type ScannerRun, type StartScanRequest } from "@/lib/api";
 
 const CORE_SCANNERS: { id: string; label: string; defaultMode: "passive" | "active" }[] = [
+  // Core 10 — first-class engines
   { id: "semgrep", label: "Semgrep (code)", defaultMode: "passive" },
   { id: "gitleaks", label: "Gitleaks (secrets)", defaultMode: "passive" },
   { id: "osv-scanner", label: "OSV-Scanner (deps)", defaultMode: "passive" },
@@ -16,6 +17,21 @@ const CORE_SCANNERS: { id: string; label: string; defaultMode: "passive" | "acti
   { id: "nuclei", label: "Nuclei (web)", defaultMode: "active" },
   { id: "zap", label: "OWASP ZAP (DAST)", defaultMode: "active" },
   { id: "nmap", label: "Nmap (network)", defaultMode: "active" },
+  // AppSec / language packs (passive)
+  { id: "bandit", label: "Bandit (Python SAST)", defaultMode: "passive" },
+  { id: "pip-audit", label: "pip-audit (Python deps)", defaultMode: "passive" },
+  { id: "npm-audit", label: "npm audit (JS deps)", defaultMode: "passive" },
+  { id: "cargo-audit", label: "cargo-audit (Rust deps)", defaultMode: "passive" },
+  { id: "govulncheck", label: "govulncheck (Go deps)", defaultMode: "passive" },
+  { id: "gosec", label: "gosec (Go SAST)", defaultMode: "passive" },
+  { id: "brakeman", label: "Brakeman (Rails SAST)", defaultMode: "passive" },
+  { id: "eslint-security", label: "ESLint security (JS/TS)", defaultMode: "passive" },
+  { id: "bearer", label: "Bearer (privacy + security)", defaultMode: "passive" },
+  { id: "trufflehog", label: "TruffleHog (secrets)", defaultMode: "passive" },
+  // Recon
+  { id: "subfinder", label: "subfinder (subdomains)", defaultMode: "passive" },
+  { id: "httpx", label: "httpx (HTTP probe)", defaultMode: "active" },
+  { id: "naabu", label: "naabu (port scan)", defaultMode: "active" },
 ];
 
 type Status =

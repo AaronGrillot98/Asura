@@ -4,6 +4,23 @@ Asura's runner is **real by default**: when a scan is submitted from the
 Command Center or `POST /api/scans`, the registered tool is executed and
 its output is parsed, evidence-stamped, and persisted to the repository.
 
+## Wired runners (26)
+
+| Pack | Tools |
+|------|-------|
+| Core engines (10) | nmap · nuclei · semgrep · trivy · gitleaks · osv-scanner · checkov · zap · syft · grype |
+| AppSec / language (9) | bandit (Python) · pip-audit · npm-audit · cargo-audit · govulncheck (Go) · gosec · brakeman (Rails) · eslint-security · bearer |
+| Secrets (1) | trufflehog |
+| Recon — dedicated (3) | subfinder · httpx · naabu |
+| Recon — shared discovery (12) | amass · dnsx · katana · gau · waybackurls · hakrawler · webanalyze · whatweb · wafw00f · tlsx · shuffledns · assetfinder |
+| Generic | SARIF (CodeQL + any SARIF-emitting tool) |
+
+The 12 shared-discovery tools use a common parser (`discovery.py`) that
+emits one info-level "discovered host" finding per record. Per-tool
+parsers will replace this when richer normalization is warranted (TLS
+metadata for tlsx, technology fingerprints for whatweb / webanalyze).
+
+
 ## The end-to-end loop
 
 For each scanner in the request, `app.services.runner.run_scanner`:
