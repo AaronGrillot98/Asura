@@ -402,14 +402,10 @@ export function RunScanForm({
         ) : null}
 
         {status.kind === "error" ? (
-          <div style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", padding: "8px 12px", borderRadius: 8, fontSize: 13 }}>
-            {status.message}
-          </div>
+          <div className="banner danger">{status.message}</div>
         ) : null}
         {status.kind === "running" ? (
-          <div style={{ background: "rgba(96,165,250,0.12)", border: "1px solid rgba(96,165,250,0.3)", color: "#93c5fd", padding: "8px 12px", borderRadius: 8, fontSize: 13 }}>
-            {status.message}
-          </div>
+          <div className="banner info">{status.message}</div>
         ) : null}
         {status.kind === "ok" ? (
           <div className="banner info" style={{ fontSize: 13 }}>

@@ -31,14 +31,11 @@ export function DeleteProjectButton({ projectId, projectName, disabled }: { proj
   return (
     <>
       {error ? (
-        <div style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", padding: "8px 12px", borderRadius: 8, fontSize: 13, marginRight: 8 }}>
-          {error}
-        </div>
+        <div className="banner danger" style={{ marginRight: 8 }}>{error}</div>
       ) : null}
       <button
         type="button"
-        className="button"
-        style={{ background: disabled ? "#1f2937" : "rgba(239,68,68,0.16)", color: disabled ? "#94a3b8" : "#fca5a5", cursor: disabled ? "not-allowed" : "pointer" }}
+        className={disabled ? "button ghost" : "button danger"}
         onClick={onClick}
         disabled={busy || disabled}
         title={disabled ? "The seeded demo project cannot be deleted." : "Delete this project"}

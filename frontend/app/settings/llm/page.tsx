@@ -90,155 +90,143 @@ export default function LLMSettingsPage() {
     }
   }
 
-  if (loading) {
-    return <main style={{ padding: 24 }}>Loading…</main>;
-  }
-
   return (
-    <main style={{ padding: 24, maxWidth: 720 }}>
-      <nav style={{ marginBottom: 12 }}>
-        <Link href="/">← Dashboard</Link>
-      </nav>
-
-      <header style={{ marginBottom: 16 }}>
-        <h1 style={{ margin: 0 }}>LLM triage settings</h1>
-        <p style={{ color: "var(--text-3)", margin: "6px 0 0" }}>
-          PentestBrain runs deterministic clustering by default — free, no API
-          calls, no key required. Configure an Anthropic API key here to
-          unlock LLM-assisted clustering + false-positive scoring. The
-          citation guard still discards any LLM output that references
-          evidence ids the brain never handed it.
-        </p>
+    <div>
+      <header className="topbar">
+        <div>
+          <span className="eyebrow">Settings</span>
+          <h1>LLM triage</h1>
+          <p>
+            PentestBrain runs deterministic clustering by default — free, no API
+            calls, no key required. Configure an Anthropic API key here to
+            unlock LLM-assisted clustering + false-positive scoring. The
+            citation guard still discards any LLM output that references
+            evidence ids the brain never handed it.
+          </p>
+        </div>
       </header>
 
-      <section
-        style={{
-          border: "1px solid var(--border-1)",
-          borderRadius: 8,
-          padding: 14,
-          marginBottom: 18,
-          background: "var(--surface-1)",
-        }}
-      >
-        <h2 style={{ marginTop: 0 }}>Current state</h2>
-        <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 12px", margin: 0 }}>
-          <dt style={{ color: "var(--text-3)" }}>Engine:</dt>
-          <dd style={{ margin: 0 }}>
-            {settings?.enabled && settings?.api_key_configured ? (
-              <strong style={{ color: "var(--accent-purple, #7c3aed)" }}>LLM mode</strong>
-            ) : (
-              <span>Deterministic (free)</span>
-            )}
-          </dd>
-          <dt style={{ color: "var(--text-3)" }}>Provider:</dt>
-          <dd style={{ margin: 0 }}>{settings?.provider ?? "anthropic"}</dd>
-          <dt style={{ color: "var(--text-3)" }}>Model:</dt>
-          <dd style={{ margin: 0 }}>{settings?.model}</dd>
-          <dt style={{ color: "var(--text-3)" }}>API key:</dt>
-          <dd style={{ margin: 0 }}>
-            {settings?.api_key_configured
-              ? <>Configured · <code>{settings.api_key_preview}</code></>
-              : <span style={{ color: "var(--text-3)" }}>Not configured</span>}
-          </dd>
-        </dl>
-      </section>
-
-      <form
-        onSubmit={handleSave}
-        style={{
-          border: "1px solid var(--border-1)",
-          borderRadius: 8,
-          padding: 14,
-          background: "var(--surface-1)",
-        }}
-      >
-        <h2 style={{ marginTop: 0 }}>Update settings</h2>
-
-        <label style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => setEnabled(e.target.checked)}
-          />
-          <span>Enable LLM-assisted triage</span>
-        </label>
-
-        <label style={{ display: "block", marginBottom: 14 }}>
-          <div style={{ marginBottom: 4, color: "var(--text-2)" }}>Model</div>
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            style={{ width: "100%", padding: 6, background: "var(--surface-2)", color: "var(--text-1)", border: "1px solid var(--border-1)", borderRadius: 6 }}
-          >
-            {MODEL_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </label>
-
-        <label style={{ display: "block", marginBottom: 14 }}>
-          <div style={{ marginBottom: 4, color: "var(--text-2)" }}>
-            Anthropic API key{settings?.api_key_configured ? " (leave blank to keep the stored key)" : ""}
-          </div>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={settings?.api_key_configured ? "leave blank to keep current key" : "sk-ant-..."}
-            autoComplete="off"
-            style={{ width: "100%", padding: 6, background: "var(--surface-2)", color: "var(--text-1)", border: "1px solid var(--border-1)", borderRadius: 6, fontFamily: "monospace" }}
-          />
-          <small style={{ color: "var(--text-3)" }}>
-            Stored encrypted at rest. The API never returns it; only a 4-char preview.
-            Get a key at <a href="https://console.anthropic.com" target="_blank" rel="noreferrer">console.anthropic.com</a>.
-          </small>
-        </label>
-
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            type="submit"
-            disabled={status.kind === "saving"}
-            style={{
-              padding: "6px 14px",
-              background: "var(--accent-purple, #7c3aed)",
-              color: "white",
-              border: "none",
-              borderRadius: 6,
-              cursor: status.kind === "saving" ? "wait" : "pointer",
-            }}
-          >
-            {status.kind === "saving" ? "Saving…" : "Save settings"}
-          </button>
-
-          {settings?.api_key_configured ? (
-            <button
-              type="button"
-              onClick={handleClearKey}
-              disabled={status.kind === "saving"}
-              style={{
-                padding: "6px 14px",
-                background: "transparent",
-                color: "var(--danger, #f87171)",
-                border: "1px solid var(--danger, #f87171)",
-                borderRadius: 6,
-                cursor: "pointer",
-              }}
-            >
-              Wipe API key
-            </button>
-          ) : null}
-
-          {status.kind === "saved" ? <small style={{ color: "var(--success, #34d399)" }}>Saved.</small> : null}
-          {status.kind === "error" ? <small style={{ color: "var(--danger, #f87171)" }}>{status.message}</small> : null}
+      {loading ? (
+        <div className="loadingState">
+          <span className="spinner" />
+          <span>Loading settings…</span>
         </div>
-      </form>
+      ) : (
+        <div className="grid two" style={{ display: "grid", gap: "var(--space-4)", gridTemplateColumns: "1fr 1fr" }}>
+          <section className="panel">
+            <div className="panelTitle">
+              <h2>Current state</h2>
+              <span className={`tag ${settings?.enabled && settings?.api_key_configured ? "accent" : ""}`}>
+                {settings?.enabled && settings?.api_key_configured ? "LLM mode" : "Deterministic"}
+              </span>
+            </div>
+            <dl className="kvList">
+              <dt>Provider</dt>
+              <dd>{settings?.provider ?? "anthropic"}</dd>
+              <dt>Model</dt>
+              <dd>{settings?.model}</dd>
+              <dt>API key</dt>
+              <dd>
+                {settings?.api_key_configured ? (
+                  <>Configured · <code>{settings.api_key_preview}</code></>
+                ) : (
+                  <span className="muted">Not configured</span>
+                )}
+              </dd>
+              {settings?.updated_at ? (
+                <>
+                  <dt>Updated</dt>
+                  <dd className="muted" style={{ fontSize: "var(--text-sm)" }}>
+                    {new Date(settings.updated_at).toLocaleString()}
+                  </dd>
+                </>
+              ) : null}
+            </dl>
+            <p className="muted" style={{ marginTop: "var(--space-3)", fontSize: "var(--text-sm)" }}>
+              A single triage call sends ~50 findings of metadata to the model —
+              typically a fraction of a cent on Haiku.
+            </p>
+          </section>
 
-      <section style={{ marginTop: 22, fontSize: 13, color: "var(--text-3)" }}>
-        <strong>Cost estimate (Anthropic pricing):</strong> a single triage call sends ~50 findings of
-        metadata to the model — typically a fraction of a cent on Haiku.
-        Without enabling this, every triage call uses the deterministic
-        baseline at zero cost.
-      </section>
-    </main>
+          <section className="panel">
+            <div className="panelTitle">
+              <h2>Update settings</h2>
+            </div>
+            <form onSubmit={handleSave} className="formCard" style={{ background: "transparent", padding: 0, border: 0 }}>
+              <label className="checkboxField">
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  onChange={(e) => setEnabled(e.target.checked)}
+                />
+                <span>Enable LLM-assisted triage</span>
+              </label>
+
+              <div className="formField">
+                <span className="formLabel">Model</span>
+                <select value={model} onChange={(e) => setModel(e.target.value)}>
+                  {MODEL_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="formField">
+                <span className="formLabel">
+                  Anthropic API key
+                  {settings?.api_key_configured ? " (leave blank to keep the stored key)" : ""}
+                </span>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={settings?.api_key_configured ? "leave blank to keep current key" : "sk-ant-..."}
+                  autoComplete="off"
+                  style={{ fontFamily: "var(--font-mono)" }}
+                />
+                <span className="helpText">
+                  Stored encrypted at rest. The API never returns it; only a 4-char preview.
+                  Get a key at{" "}
+                  <a href="https://console.anthropic.com" target="_blank" rel="noreferrer">
+                    console.anthropic.com
+                  </a>.
+                </span>
+              </div>
+
+              <div className="formActions">
+                <button type="submit" disabled={status.kind === "saving"}>
+                  {status.kind === "saving" ? "Saving…" : "Save settings"}
+                </button>
+                {settings?.api_key_configured ? (
+                  <button
+                    type="button"
+                    className="button danger"
+                    onClick={handleClearKey}
+                    disabled={status.kind === "saving"}
+                  >
+                    Wipe API key
+                  </button>
+                ) : null}
+                {status.kind === "saved" ? (
+                  <span className="statusText ok">Saved.</span>
+                ) : null}
+                {status.kind === "error" ? (
+                  <span className="statusText danger">{status.message}</span>
+                ) : null}
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      <p className="muted" style={{ marginTop: "var(--space-4)", fontSize: "var(--text-sm)" }}>
+        Headless deployments can configure the same toggle via the{" "}
+        <code className="inlineCode">ASURA_LLM_TRIAGE</code> and{" "}
+        <code className="inlineCode">ANTHROPIC_API_KEY</code> environment variables.
+        UI settings take precedence when both are set. See{" "}
+        <Link href="/">the Command Center</Link> for what triage actually
+        looks like on a project.
+      </p>
+    </div>
   );
 }

@@ -85,9 +85,7 @@ export function TargetsSection({ projectId, initial }: { projectId: string; init
       </div>
 
       {error ? (
-        <div style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", padding: "8px 12px", borderRadius: 8, fontSize: 13, marginBottom: 10 }}>
-          {error}
-        </div>
+        <div className="banner danger" style={{ marginBottom: "var(--space-3)" }}>{error}</div>
       ) : null}
 
       {open ? (

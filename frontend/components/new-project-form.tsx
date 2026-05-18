@@ -91,36 +91,33 @@ export function NewProjectForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ display: "grid", gap: 14 }}>
+    <form onSubmit={onSubmit} style={{ display: "grid", gap: "var(--space-3)" }}>
       <section className="panel">
         <div className="panelTitle"><h2>Project</h2></div>
-        <div style={{ display: "grid", gap: 12 }}>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ color: "#94a3b8", fontSize: 12 }}>Name</span>
+        <div style={{ display: "grid", gap: "var(--space-3)" }}>
+          <label className="formField">
+            <span className="formLabel">Name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Acme FlightOps Production"
-              style={{ background: "#0b1320", color: "#e8eef6", border: "1px solid #1f2937", borderRadius: 8, padding: "8px 10px", fontSize: 13 }}
             />
           </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ color: "#94a3b8", fontSize: 12 }}>Description</span>
+          <label className="formField">
+            <span className="formLabel">Description</span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What is this project's surface area? What are we testing for?"
               rows={3}
-              style={{ background: "#0b1320", color: "#e8eef6", border: "1px solid #1f2937", borderRadius: 8, padding: "8px 10px", fontSize: 13, fontFamily: "inherit" }}
             />
           </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ color: "#94a3b8", fontSize: 12 }}>Authorization grantor (optional)</span>
+          <label className="formField">
+            <span className="formLabel">Authorization grantor (optional)</span>
             <input
               value={grantor}
               onChange={(e) => setGrantor(e.target.value)}
               placeholder="Who authorized this engagement? e.g. 'Acme Security Engineering'"
-              style={{ background: "#0b1320", color: "#e8eef6", border: "1px solid #1f2937", borderRadius: 8, padding: "8px 10px", fontSize: 13 }}
             />
           </label>
         </div>
@@ -128,37 +125,35 @@ export function NewProjectForm() {
 
       <section className="panel">
         <div className="panelTitle"><h2>Authorized scope</h2></div>
-        <p style={{ color: "#94a3b8", fontSize: 13 }}>
+        <p className="muted">
           One entry per line. Every scan target is checked against these lists
           before any scanner runs.
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="formGrid2" style={{ marginTop: "var(--space-3)" }}>
           <ScopeField label="Domains" value={domains} onChange={setDomains} placeholder="example.com&#10;sub.example.com" />
           <ScopeField label="URLs" value={urls} onChange={setUrls} placeholder="https://example.com&#10;https://api.example.com" />
           <ScopeField label="CIDRs" value={cidrs} onChange={setCidrs} placeholder="10.0.0.0/24&#10;192.168.10.0/24" />
           <ScopeField label="Repos" value={repos} onChange={setRepos} placeholder="git://example/repo&#10;/path/to/local/repo" />
           <ScopeField label="Containers" value={containers} onChange={setContainers} placeholder="ghcr.io/example/image:latest" />
         </div>
-        <div style={{ display: "flex", gap: 16, marginTop: 12, color: "#cbd5e1", fontSize: 13 }}>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-4)", marginTop: "var(--space-3)" }}>
+          <label className="checkboxField">
             <input type="checkbox" checked={allowActive} onChange={(e) => setAllowActive(e.target.checked)} />
-            Allow authorized active scans
+            <span>Allow authorized active scans</span>
           </label>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <label className="checkboxField">
             <input type="checkbox" checked={allowLab} onChange={(e) => setAllowLab(e.target.checked)} />
-            Allow lab-validation scans
+            <span>Allow lab-validation scans</span>
           </label>
         </div>
       </section>
 
       {status.kind === "error" ? (
-        <div style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", padding: "8px 12px", borderRadius: 8, fontSize: 13 }}>
-          {status.message}
-        </div>
+        <div className="banner danger">{status.message}</div>
       ) : null}
 
       <div>
-        <button type="submit" className="button" disabled={status.kind === "saving"}>
+        <button type="submit" disabled={status.kind === "saving"}>
           <Sprout size={14} /> {status.kind === "saving" ? "Creating…" : "Create project"}
         </button>
       </div>
@@ -168,14 +163,14 @@ export function NewProjectForm() {
 
 function ScopeField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
-    <label style={{ display: "grid", gap: 4 }}>
-      <span style={{ color: "#94a3b8", fontSize: 12 }}>{label}</span>
+    <label className="formField">
+      <span className="formLabel">{label}</span>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={4}
-        style={{ background: "#0b1320", color: "#e8eef6", border: "1px solid #1f2937", borderRadius: 8, padding: "8px 10px", fontSize: 12, fontFamily: "monospace" }}
+        style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}
       />
     </label>
   );

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Sparkles } from "lucide-react";
 import {
   getProject,
   getTriage,
@@ -32,93 +33,81 @@ export default async function ProjectTriage({ params }: { params: Promise<{ id: 
   }
 
   return (
-    <main style={{ padding: 24 }}>
-      <nav style={{ marginBottom: 12 }}>
-        <Link href={`/projects/${id}`}>← {project.name}</Link>
-      </nav>
-
-      <header style={{ marginBottom: 16 }}>
-        <h1 style={{ margin: 0 }}>Triage</h1>
-        <p style={{ color: "var(--text-3)", margin: "4px 0 0" }}>
-          PentestBrain clusters findings and proposes a fix order. Every claim
-          cites the evidence ids it used; the citation guard discards LLM
-          output that references ids the brain never saw.
-        </p>
+    <div>
+      <header className="topbar">
+        <div>
+          <span className="eyebrow">
+            <Link href={`/projects/${id}`}>← {project.name}</Link>
+          </span>
+          <h1>Triage</h1>
+          <p>
+            PentestBrain clusters findings and proposes a fix order. Every claim
+            cites the evidence ids it used; the citation guard discards LLM
+            output that references ids the brain never saw.
+          </p>
+        </div>
+        {report ? (
+          <div className="topbarActions">
+            <span className={`tag ${report.engine === "llm" ? "accent" : ""}`}>
+              {report.engine === "llm" ? "LLM mode" : "Deterministic"}
+            </span>
+            {report.engine === "deterministic" ? (
+              <Link href="/settings/llm" className="button ghost">
+                <Sparkles size={14} /> Configure LLM
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
       </header>
 
       {errorMessage ? (
         <div className="banner danger">Could not load triage: {errorMessage}</div>
-      ) : !report ? null : (
+      ) : !report ? (
+        <div className="loadingState">
+          <span className="spinner" />
+          <span>Building triage report…</span>
+        </div>
+      ) : (
         <>
-          <section
-            style={{
-              border: "1px solid var(--border-1)",
-              borderRadius: 8,
-              padding: 14,
-              marginBottom: 18,
-              background: "var(--surface-1)",
-            }}
-          >
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-              <span
-                style={{
-                  fontSize: 12,
-                  padding: "2px 8px",
-                  borderRadius: 999,
-                  background: report.engine === "llm" ? "var(--accent-purple, #7c3aed)" : "var(--surface-2)",
-                  color: report.engine === "llm" ? "white" : "var(--text-2)",
-                }}
-              >
-                engine: {report.engine}
-                {report.model ? ` · ${report.model}` : ""}
-              </span>
-              <small style={{ color: "var(--text-3)" }}>
+          <section className="panel">
+            <div className="panelTitle">
+              <h2>Summary</h2>
+              <small>
                 {report.findings_considered} finding(s) considered
+                {report.model ? ` · ${report.model}` : ""}
                 {report.claims_dropped > 0 ? (
-                  <> · <strong>{report.claims_dropped}</strong> LLM claim(s) dropped by the citation guard</>
+                  <>
+                    {" "}· <strong>{report.claims_dropped}</strong> LLM claim(s) dropped by the citation guard
+                  </>
                 ) : null}
               </small>
-              {report.engine === "deterministic" ? (
-                <Link
-                  href="/settings/llm"
-                  style={{ marginLeft: "auto", fontSize: 12, color: "var(--accent-purple, #7c3aed)" }}
-                >
-                  Configure LLM triage →
-                </Link>
-              ) : null}
             </div>
-            <p style={{ marginTop: 10, color: "var(--text-2)" }}>{report.summary}</p>
+            <p>{report.summary}</p>
           </section>
 
           {report.clusters.length > 0 ? (
-            <section style={{ marginBottom: 22 }}>
-              <h2 style={{ marginBottom: 8 }}>Clusters</h2>
-              <div style={{ display: "grid", gap: 12 }}>
+            <section className="panel">
+              <div className="panelTitle">
+                <h2>Clusters ({report.clusters.length})</h2>
+                <small>Related findings the brain grouped together.</small>
+              </div>
+              <div className="grid two" style={{ display: "grid", gap: "var(--space-3)", gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
                 {report.clusters.map((c) => (
-                  <article
-                    key={c.id}
-                    style={{
-                      border: "1px solid var(--border-1)",
-                      borderRadius: 8,
-                      padding: 12,
-                      background: "var(--surface-1)",
-                    }}
-                  >
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                  <article key={c.id} className="card">
+                    <div className="cardHeader">
                       <SeverityBadge severity={c.severity} />
-                      <strong>{c.title}</strong>
-                      <small style={{ color: "var(--text-3)", marginLeft: "auto" }}>
-                        confidence: {c.confidence}
-                      </small>
+                      <strong className="cardTitle">{c.title}</strong>
+                      <small className="cardSubtle">{c.confidence}</small>
                     </div>
-                    <p style={{ margin: "4px 0", color: "var(--text-2)" }}>{c.summary}</p>
-                    <p style={{ margin: "4px 0", color: "var(--text-3)", fontSize: 13 }}>{c.reasoning}</p>
+                    <p className="cardBody">{c.summary}</p>
+                    <p className="muted" style={{ fontSize: "var(--text-sm)" }}>{c.reasoning}</p>
                     {c.fix_recommendation ? (
-                      <p style={{ margin: "6px 0", fontSize: 13 }}>
-                        <strong>Fix:</strong> {c.fix_recommendation}
+                      <p style={{ fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>
+                        <strong>Fix: </strong>
+                        {c.fix_recommendation}
                       </p>
                     ) : null}
-                    <small style={{ color: "var(--text-3)" }}>
+                    <small className="muted">
                       {c.finding_ids.length} finding(s) · cites {c.cited_evidence_ids.length} evidence record(s)
                     </small>
                   </article>
@@ -128,43 +117,45 @@ export default async function ProjectTriage({ params }: { params: Promise<{ id: 
           ) : null}
 
           {report.false_positive_candidates.length > 0 ? (
-            <section style={{ marginBottom: 22 }}>
-              <h2 style={{ marginBottom: 8 }}>False-positive candidates</h2>
-              <p style={{ color: "var(--text-3)", marginTop: 0 }}>
-                Suggestions only. A human triager confirms before changing a finding&apos;s status.
-              </p>
-              <div style={{ display: "grid", gap: 8 }}>
+            <section className="panel">
+              <div className="panelTitle">
+                <h2>False-positive candidates ({report.false_positive_candidates.length})</h2>
+                <small>Suggestions only. A human triager confirms before changing a finding&apos;s status.</small>
+              </div>
+              <ul style={{ display: "grid", gap: "var(--space-2)", listStyle: "none", margin: 0, padding: 0 }}>
                 {report.false_positive_candidates.map((fp) => (
-                  <article
-                    key={fp.finding_id}
-                    style={{
-                      border: "1px solid var(--border-1)",
-                      borderRadius: 8,
-                      padding: 10,
-                      background: "var(--surface-1)",
-                    }}
-                  >
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <Link href={`/findings/${fp.finding_id}`}>{fp.finding_id}</Link>
-                      <small style={{ color: "var(--text-3)", marginLeft: "auto" }}>
+                  <li key={fp.finding_id} className="card">
+                    <div className="cardHeader">
+                      <Link href={`/findings/${fp.finding_id}`} className="cardTitle">
+                        {fp.finding_id}
+                      </Link>
+                      <small className="cardSubtle">
                         cites {fp.cited_evidence_ids.length} evidence record(s)
                       </small>
                     </div>
-                    <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-2)" }}>{fp.reasoning}</p>
-                  </article>
+                    <p className="cardBody" style={{ fontSize: "var(--text-sm)" }}>{fp.reasoning}</p>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           ) : null}
 
           {report.priority_order.length > 0 ? (
-            <section>
-              <h2 style={{ marginBottom: 8 }}>Recommended fix order</h2>
-              <ol style={{ paddingLeft: 18 }}>
+            <section className="panel">
+              <div className="panelTitle">
+                <h2>Recommended fix order</h2>
+                <small>Rank 1 = fix first.</small>
+              </div>
+              <ol style={{ display: "grid", gap: "var(--space-2)", listStyle: "none", margin: 0, padding: 0 }}>
                 {report.priority_order.map((p) => (
-                  <li key={`${p.rank}-${p.finding_id}`} style={{ marginBottom: 6 }}>
-                    <Link href={`/findings/${p.finding_id}`}>{p.finding_id}</Link>
-                    <span style={{ marginLeft: 8, color: "var(--text-3)", fontSize: 13 }}>{p.reasoning}</span>
+                  <li key={`${p.rank}-${p.finding_id}`} className="card">
+                    <div className="cardHeader">
+                      <span className="tag">#{p.rank}</span>
+                      <Link href={`/findings/${p.finding_id}`} className="cardTitle">
+                        {p.finding_id}
+                      </Link>
+                    </div>
+                    <p className="muted" style={{ fontSize: "var(--text-sm)" }}>{p.reasoning}</p>
                   </li>
                 ))}
               </ol>
@@ -172,6 +163,6 @@ export default async function ProjectTriage({ params }: { params: Promise<{ id: 
           ) : null}
         </>
       )}
-    </main>
+    </div>
   );
 }

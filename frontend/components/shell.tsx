@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Activity,
   Boxes,
@@ -12,6 +12,7 @@ import {
   Home,
   KeyRound,
   Layers,
+  Menu,
   Package,
   Radar,
   ScrollText,
@@ -73,8 +74,31 @@ function isActive(pathname: string, href: string): boolean {
 
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "/";
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Close the mobile drawer on navigation.
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
+  // Lock body scroll while the drawer is open on mobile.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = sidebarOpen ? "hidden" : original;
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [sidebarOpen]);
+
   return (
-    <div className="shell">
+    <div className="shell" data-sidebar-open={sidebarOpen ? "true" : "false"}>
+      <button
+        type="button"
+        className="sidebarOverlay"
+        aria-label="Close navigation"
+        onClick={() => setSidebarOpen(false)}
+      />
       <aside className="sidebar">
         <div className="brand">
           <div className="mark">A</div>
@@ -86,7 +110,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <GlobalSearchTrigger />
         <nav>
           {NAV.map((section) => (
-            <div key={section.label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div key={section.label} className="navSectionGroup">
               <div className="navSection">{section.label}</div>
               {section.entries.map((entry) => (
                 <Link
@@ -101,12 +125,23 @@ export function Shell({ children }: { children: ReactNode }) {
             </div>
           ))}
         </nav>
-        <div style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 16, borderTop: "1px solid var(--border-1)" }}>
+        <div className="sidebarFooter">
           <BackendHealth />
           <ThemeToggle />
         </div>
       </aside>
-      <main className="content">{children}</main>
+      <main className="content">
+        <button
+          type="button"
+          className="sidebarToggle"
+          aria-label="Open navigation"
+          aria-expanded={sidebarOpen}
+          onClick={() => setSidebarOpen((v) => !v)}
+        >
+          <Menu size={18} />
+        </button>
+        {children}
+      </main>
       <GlobalSearch />
     </div>
   );
