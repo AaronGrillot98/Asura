@@ -41,16 +41,18 @@ def test_planned_catalog_additions_have_no_runnable_commands() -> None:
     #   - trufflehog (slice 2)
     #   - ffuf, gobuster, dirsearch, kube-bench, kubescape, kube-score, prowler
     #     (slice 10: fuzzers + K8s/cloud)
+    #   - feroxbuster, nikto, wapiti, retirejs, schemathesis, jwt-tool,
+    #     polaris, docker-bench-security (slice 15: more catalog tools wired)
     # Anything still in this set is intentionally not yet runnable.
     catalog_only_additions = {
-        "feroxbuster", "nikto", "wapiti", "arjun",
-        "kxss", "linkfinder", "secretfinder", "retirejs", "corsy", "crlfuzz",
-        "openredirex", "kiterunner", "jwt-tool", "graphql-voyager", "inql",
+        "arjun",
+        "kxss", "linkfinder", "secretfinder", "corsy", "crlfuzz",
+        "openredirex", "kiterunner", "graphql-voyager", "inql",
         "graphql-cop", "restler", "postman-importer", "openapi-parser",
         "detect-secrets", "whispers", "detect-secrets-baseline",
         "kics", "terrascan", "tfsec-compatible", "cloudsplaining", "scoutsuite",
-        "steampipe", "parliament", "cfn-nag", "polaris",
-        "docker-bench-security", "falco",
+        "steampipe", "parliament", "cfn-nag",
+        "falco",
         "suricata-rules", "zeek", "osquery", "chainsaw", "hayabusa",
         "velociraptor", "volatility3", "plaso", "timesketch",
     }

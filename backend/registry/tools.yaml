@@ -1117,23 +1117,29 @@ tools:
     execution: optional_pack
     modes: [active, lab]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: MIT
     official_url: https://github.com/schemathesis/schemathesis
     executable: schemathesis
-    install_hint: "Install with pipx."
+    install_hint: "Install with `pipx install schemathesis` or use `schemathesis/schemathesis:stable`."
+    docker_image: schemathesis/schemathesis:stable
+    target_kind: url
     input_types: [openapi, graphql]
-    output_formats: [junit, json]
-    parser: schemathesis_json
+    output_formats: [text, junit]
+    parser: schemathesis_text
     safe_default: false
     requires_authorized_scope: true
     docker_available: true
     supported_os: [linux, macos, windows]
     commands:
       - mode: active
-        command: "schemathesis run {{target}} --report junit"
+        command: "schemathesis run {{target}} --checks all --hypothesis-deadline=null"
+      - mode: lab
+        command: "schemathesis run {{target}} --checks all --hypothesis-deadline=null"
     recommended_use: "Property-based API testing from OpenAPI or GraphQL schemas."
     risk_warning: "Can send generated requests; require rate limits and scope confirmation."
+    risk_level: medium
+    tags: [api, fuzzing]
 
   - id: prowler
     name: Prowler
@@ -1272,18 +1278,23 @@ tools:
     execution: optional_pack
     modes: [active]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: MIT
     official_url: https://github.com/epi052/feroxbuster
-    executable: null
+    executable: feroxbuster
+    install_hint: "Install via cargo or the binary release. Docker image: ghcr.io/epi052/feroxbuster:latest."
+    docker_image: ghcr.io/epi052/feroxbuster:latest
+    target_kind: url
     input_types: [url]
     output_formats: [json]
-    parser: null
+    parser: feroxbuster_json
     safe_default: false
     requires_authorized_scope: true
     docker_available: true
     supported_os: [linux, macos, windows]
-    commands: []
+    commands:
+      - mode: active
+        command: "feroxbuster -u {{target}} -w {{wordlist}} --json --silent --no-state"
     recommended_use: "Recursive content discovery for explicitly scoped web apps."
     risk_warning: "High-noise scanner; confirm before running."
     risk_level: medium
@@ -1354,18 +1365,23 @@ tools:
     execution: optional_pack
     modes: [active]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: GPL-2.0
     official_url: https://github.com/sullo/nikto
-    executable: null
+    executable: nikto
+    install_hint: "Install via package manager (`apt install nikto`) or use `sullo/nikto:latest`."
+    docker_image: sullo/nikto:latest
+    target_kind: url
     input_types: [url, host]
-    output_formats: [xml, csv, json]
-    parser: null
+    output_formats: [json]
+    parser: nikto_json
     safe_default: false
     requires_authorized_scope: true
     docker_available: true
     supported_os: [linux, macos, windows]
-    commands: []
+    commands:
+      - mode: active
+        command: "nikto -h {{target}} -Format json -output -"
     recommended_use: "Legacy web server misconfiguration scanner."
     risk_warning: "High-noise scanner; results require triage."
     risk_level: high
@@ -1378,18 +1394,23 @@ tools:
     execution: optional_pack
     modes: [active]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: GPL-2.0
     official_url: https://wapiti-scanner.github.io/
-    executable: null
+    executable: wapiti
+    install_hint: "Install via pipx or use `cyberwatch/wapiti:latest`."
+    docker_image: cyberwatch/wapiti:latest
+    target_kind: url
     input_types: [url]
-    output_formats: [json, html]
-    parser: null
+    output_formats: [json]
+    parser: wapiti_json
     safe_default: false
     requires_authorized_scope: true
     docker_available: true
     supported_os: [linux, macos]
-    commands: []
+    commands:
+      - mode: active
+        command: "wapiti -u {{target}} -f json -o -"
     recommended_use: "Black-box web app vulnerability scanning for authorized scope."
     risk_warning: "Active payloads; ensure scope before running."
     risk_level: medium
@@ -1498,18 +1519,23 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: Apache-2.0
     official_url: https://retirejs.github.io/retire.js/
-    executable: null
+    executable: retire
+    install_hint: "Install with `npm install -g retire` or use `retirejs/retire:latest`."
+    docker_image: retirejs/retire:latest
+    target_kind: filesystem
     input_types: [url, file]
     output_formats: [json]
-    parser: null
+    parser: retirejs_json
     safe_default: true
     requires_authorized_scope: false
-    docker_available: false
+    docker_available: true
     supported_os: [linux, macos, windows]
-    commands: []
+    commands:
+      - mode: passive
+        command: "retire --path {{target}} --outputformat json --outputpath /dev/stdout"
     recommended_use: "Detect vulnerable JavaScript libraries in front-end code."
     risk_warning: null
     risk_level: low
@@ -1618,18 +1644,23 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: GPL-3.0
     official_url: https://github.com/ticarpi/jwt_tool
-    executable: null
+    executable: jwt_tool
+    install_hint: "Install via the official repo or use `ticarpi/jwt_tool:latest`."
+    docker_image: ticarpi/jwt_tool:latest
+    target_kind: url
     input_types: [token, url]
     output_formats: [text]
-    parser: null
+    parser: jwt_tool_text
     safe_default: true
     requires_authorized_scope: false
-    docker_available: false
+    docker_available: true
     supported_os: [linux, macos, windows]
-    commands: []
+    commands:
+      - mode: passive
+        command: "jwt_tool {{target}}"
     recommended_use: "Inspect and analyse JWTs for misconfigurations or weak signing."
     risk_warning: null
     risk_level: low
@@ -2131,18 +2162,23 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: Apache-2.0
     official_url: https://polaris.docs.fairwinds.com/
-    executable: null
+    executable: polaris
+    install_hint: "Install via the Polaris release page or use `quay.io/fairwinds/polaris:latest`."
+    docker_image: quay.io/fairwinds/polaris:latest
+    target_kind: filesystem
     input_types: [cluster, kubernetes]
     output_formats: [json]
-    parser: null
+    parser: polaris_json
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
     supported_os: [linux, macos, windows]
-    commands: []
+    commands:
+      - mode: passive
+        command: "polaris audit --audit-path {{target}} --format json"
     recommended_use: "Cluster and manifest best-practice checks from Fairwinds."
     risk_warning: null
     risk_level: low
@@ -2155,19 +2191,24 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: Apache-2.0
     official_url: https://github.com/docker/docker-bench-security
-    executable: null
+    executable: docker-bench-security
+    install_hint: "Clone the upstream repo or use `docker/docker-bench-security:latest`."
+    docker_image: docker/docker-bench-security:latest
+    target_kind: host
     input_types: [host]
-    output_formats: [json, text]
-    parser: null
+    output_formats: [json]
+    parser: docker_bench_json
     safe_default: true
     requires_authorized_scope: true
-    docker_available: false
+    docker_available: true
     supported_os: [linux]
-    commands: []
-    recommended_use: "CIS Docker Benchmark checks against an authorized host."
+    commands:
+      - mode: passive
+        command: "docker-bench-security -c {{target}} -j"
+    recommended_use: "CIS Docker Benchmark checks against an authorized host. Pass a check section (e.g. `container_images`, `host_configuration`, `daemon`, `docker_security_operations`) as the target."
     risk_warning: "Runs against a host; ensure ownership."
     risk_level: medium
     tags: [docker, cis, benchmark]
