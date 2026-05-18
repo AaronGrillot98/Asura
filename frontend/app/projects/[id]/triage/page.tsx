@@ -78,6 +78,14 @@ export default async function ProjectTriage({ params }: { params: Promise<{ id: 
                   <> · <strong>{report.claims_dropped}</strong> LLM claim(s) dropped by the citation guard</>
                 ) : null}
               </small>
+              {report.engine === "deterministic" ? (
+                <Link
+                  href="/settings/llm"
+                  style={{ marginLeft: "auto", fontSize: 12, color: "var(--accent-purple, #7c3aed)" }}
+                >
+                  Configure LLM triage →
+                </Link>
+              ) : null}
             </div>
             <p style={{ marginTop: 10, color: "var(--text-2)" }}>{report.summary}</p>
           </section>

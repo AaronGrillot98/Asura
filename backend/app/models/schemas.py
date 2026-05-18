@@ -654,6 +654,31 @@ class AuthProfileCreate(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# LLM triage settings (Fernet-encrypted file storage, never returned raw)
+# ---------------------------------------------------------------------------
+
+class LLMSettings(BaseModel):
+    """Public view of the configured LLM client. Never carries the raw
+    API key — only a trailing-4-char preview."""
+    enabled: bool = False
+    provider: Literal["anthropic"] = "anthropic"
+    model: str = "claude-haiku-4-5-20251001"
+    api_key_preview: str | None = None
+    api_key_configured: bool = False
+    updated_at: datetime | None = None
+
+
+class LLMSettingsUpdate(BaseModel):
+    """Request body for PUT /api/settings/llm. The api_key field is
+    write-only; the API never echoes it back."""
+    enabled: bool = False
+    model: str = "claude-haiku-4-5-20251001"
+    # When None, the existing stored key is preserved (so users can toggle
+    # enabled / change model without re-pasting the key).
+    api_key: str | None = None
+
+
+# ---------------------------------------------------------------------------
 # Custom Nuclei templates
 # ---------------------------------------------------------------------------
 

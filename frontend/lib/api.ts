@@ -292,6 +292,52 @@ export async function getTriage(projectId: string, limit?: number): Promise<Tria
   return getJson<TriageReport>(`/api/projects/${projectId}/triage${q}`);
 }
 
+// ---------------------------------------------------------------------------
+// LLM settings (Fernet-encrypted; api key is write-only, never returned raw)
+// ---------------------------------------------------------------------------
+
+export type LLMSettings = {
+  enabled: boolean;
+  provider: "anthropic";
+  model: string;
+  api_key_preview?: string | null;
+  api_key_configured: boolean;
+  updated_at?: string | null;
+};
+
+export type LLMSettingsUpdate = {
+  enabled: boolean;
+  model: string;
+  api_key?: string | null;
+};
+
+export async function getLLMSettings(): Promise<LLMSettings> {
+  return getJson<LLMSettings>(`/api/settings/llm`);
+}
+
+export async function updateLLMSettings(payload: LLMSettingsUpdate): Promise<LLMSettings> {
+  const res = await fetch(`${API_URL}/api/settings/llm`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`PUT /api/settings/llm failed: ${res.status} ${await res.text()}`);
+  }
+  return (await res.json()) as LLMSettings;
+}
+
+export async function deleteLLMSettings(): Promise<void> {
+  const res = await fetch(`${API_URL}/api/settings/llm`, {
+    method: "DELETE",
+    cache: "no-store",
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`DELETE /api/settings/llm failed: ${res.status} ${await res.text()}`);
+  }
+}
+
 export async function getArsenal(): Promise<ArsenalSummary> {
   return getJson<ArsenalSummary>(`/api/arsenal`);
 }

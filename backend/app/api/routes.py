@@ -34,6 +34,8 @@ from app.models.schemas import (
     RegistryContractReport,
     Report,
     ReportRequest,
+    LLMSettings,
+    LLMSettingsUpdate,
     ScanJob,
     ScanRequest,
     ScannerRun,
@@ -53,6 +55,7 @@ from app.services.pipelines import list_pipelines
 from app.services.templates_service import TemplateValidationError, TemplatesService
 from app.services import zap_auth
 from app.services.auth_profile_service import AuthProfileService
+from app.services.llm_settings_service import LLMSettingsService
 from app.security.blocked_capabilities import as_dicts as blocked_capabilities_dicts
 from app.security.scope_guard import decide_scope, validate_scan_scope
 from app.services.demo_store import RISK_TREND
@@ -916,6 +919,27 @@ def delete_auth_profile(profile_id: str) -> Response:
     service = AuthProfileService(get_repos())
     if not service.delete(profile_id):
         raise HTTPException(status_code=404, detail="Auth profile not found")
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------------
+# LLM triage settings (Fernet-encrypted; api key never returned in responses)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/settings/llm", response_model=LLMSettings)
+def get_llm_settings() -> LLMSettings:
+    return LLMSettingsService().get()
+
+
+@router.put("/settings/llm", response_model=LLMSettings)
+def update_llm_settings(payload: LLMSettingsUpdate) -> LLMSettings:
+    return LLMSettingsService().update(payload)
+
+
+@router.delete("/settings/llm", status_code=204, response_class=Response)
+def delete_llm_settings() -> Response:
+    LLMSettingsService().delete()
     return Response(status_code=204)
 
 

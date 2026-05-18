@@ -16,6 +16,7 @@ import {
   Radar,
   ScrollText,
   ShieldCheck,
+  Sparkles,
   Workflow,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -58,6 +59,7 @@ const NAV: NavSection[] = [
       { href: "/arsenal", label: "Arsenal", icon: <Package size={16} /> },
       { href: "/templates", label: "Nuclei Templates", icon: <FileCode size={16} /> },
       { href: "/auth-profiles", label: "Auth Profiles", icon: <KeyRound size={16} /> },
+      { href: "/settings/llm", label: "LLM Triage", icon: <Sparkles size={16} /> },
       { href: "/audit", label: "Audit Log", icon: <ScrollText size={16} /> },
       { href: "/safety", label: "Safety Model", icon: <Radar size={16} /> },
     ],

@@ -272,9 +272,30 @@ def _env_truthy(name: str) -> bool:
 def get_llm_client() -> LLMClient:
     """Return the configured client.
 
-    `ASURA_LLM_TRIAGE=1` + `ANTHROPIC_API_KEY=...` → AnthropicLLMClient.
-    Anything else → NullLLMClient (deterministic).
+    Resolution order (first match wins):
+
+    1. **Settings store** (`auth/.llm-settings.json`) — written via the
+       Settings page. `enabled=true` AND a stored api_key.
+    2. **Env vars** — `ASURA_LLM_TRIAGE=1` + `ANTHROPIC_API_KEY`. The
+       headless / CI path.
+    3. **NullLLMClient** — deterministic only.
     """
+    # Settings store (UI-configured). Imported lazily to avoid a circular
+    # import: llm_settings_service imports auth_profile_service which
+    # imports things from app.services indirectly during boot.
+    try:
+        from app.services.llm_settings_service import LLMSettingsService
+        service = LLMSettingsService()
+        settings = service.get()
+        if settings.enabled and settings.api_key_configured:
+            api_key = service.decrypted_api_key()
+            if api_key:
+                return AnthropicLLMClient(api_key=api_key, model=settings.model)
+    except Exception:
+        # Settings load failure shouldn't sink the brain — fall through
+        # to env-var resolution.
+        pass
+
     if _env_truthy("ASURA_LLM_TRIAGE") and os.environ.get("ANTHROPIC_API_KEY"):
         model = os.environ.get("ASURA_LLM_MODEL", _DEFAULT_MODEL)
         return AnthropicLLMClient(model=model)
