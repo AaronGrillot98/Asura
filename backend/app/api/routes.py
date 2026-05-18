@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 from uuid import uuid4
 
@@ -49,6 +50,7 @@ from app.services.job_runner import (
 )
 from app.services.pipelines import list_pipelines
 from app.services.templates_service import TemplateValidationError, TemplatesService
+from app.services import zap_auth
 from app.services.auth_profile_service import AuthProfileService
 from app.security.blocked_capabilities import as_dicts as blocked_capabilities_dicts
 from app.security.scope_guard import decide_scope, validate_scan_scope
@@ -816,23 +818,55 @@ def delete_template(template_id: str) -> Response:
 # ---------------------------------------------------------------------------
 
 
-def _auth_extras_for(scanner: str, profile_id: Optional[str]) -> tuple[list[str], Optional[str]]:
-    """Return (extra_args, error_message). Empty args when no profile or
-    when the scanner doesn't accept custom headers."""
+AUTH_CAPABLE_SCANNERS = {"nuclei", "httpx", "zap"}
+
+
+def _auth_extras_for(
+    scanner: str, profile_id: Optional[str]
+) -> tuple[list[str], list[tuple[str, str]], list[Path], Optional[str]]:
+    """Resolve a per-scanner auth profile into runner-ready extras.
+
+    Returns `(extra_args, extra_mounts, cleanup_paths, error_message)`:
+
+    - `extra_args` are appended to the scanner's argv.
+    - `extra_mounts` are bind-mounts the Docker runner attaches.
+    - `cleanup_paths` are files the caller must `unlink` after the scan
+      finishes (we use this to wipe ZAP hook scripts containing the
+      decrypted secret).
+
+    Nuclei + HTTPx accept raw `-H` flags. ZAP can't take headers on its
+    CLI, so we instead generate a `--hook` script that wires Replacer
+    rules via the ZAP API the moment the daemon comes up. All three
+    scanners pull from the exact same `AuthProfile` rows — the API is
+    the same to the caller.
+    """
     if not profile_id:
-        return [], None
+        return [], [], [], None
     service = AuthProfileService(get_repos())
     profile = service.get(profile_id)
     if profile is None:
-        return [], f"Unknown auth profile: {profile_id}"
-    # Only scanners that take a `-H` flag get auth applied. Others ignore it.
-    if scanner not in {"nuclei", "httpx"}:
-        return [], None
+        return [], [], [], f"Unknown auth profile: {profile_id}"
+    if scanner not in AUTH_CAPABLE_SCANNERS:
+        return [], [], [], None
+
     headers = service.decrypted_headers(profile_id)
+    if not headers:
+        return [], [], [], None
+
+    if scanner == "zap":
+        hook_path = zap_auth.write_hook_file(headers)
+        # The path-rewriter swaps host paths under any extra_mount to the
+        # in-container path automatically — local subprocess sees the host
+        # path, Docker sees `/asura-zap-hooks/<basename>`.
+        extra_args = ["--hook", str(hook_path)]
+        extra_mounts = [(str(hook_path.parent), zap_auth.HOOK_MOUNT_DIR)]
+        return extra_args, extra_mounts, [hook_path], None
+
+    # nuclei + httpx: raw -H flags.
     args: list[str] = []
     for name, value in headers:
         args.extend(["-H", f"{name}: {value}"])
-    return args, None
+    return args, [], [], None
 
 
 @router.get("/auth-profiles", response_model=list[AuthProfile])
@@ -913,30 +947,43 @@ def start_scan(request: ScanRequest) -> list[ScannerRun]:
         substitutions["provider"] = request.provider
 
     runs: list[ScannerRun] = []
-    for scanner in request.scanners:
-        is_nuclei = scanner == "nuclei"
-        # Per-scanner auth header injection (nuclei + httpx).
-        auth_args, auth_err = _auth_extras_for(scanner, request.auth_profile_id)
-        if auth_err:
-            raise HTTPException(status_code=400, detail=auth_err)
-        # Compose extras: template paths/mounts (nuclei only) + auth headers.
-        scanner_extras = list(auth_args)
-        if is_nuclei:
-            scanner_extras = list(nuclei_args) + scanner_extras
-        run = run_scanner(
-            project_id=request.project_id,
-            scanner=scanner,
-            target=request.target,
-            mode=request.mode.value,
-            authorized=request.explicit_authorization,
-            repos=repos,
-            extra_args=scanner_extras or None,
-            extra_mounts=nuclei_mounts if is_nuclei else None,
-            substitutions=substitutions or None,
-        )
-        repos.runs.add(run)
-        runs.append(run)
-    return runs
+    # Hook files generated for ZAP auth must be deleted after the scan so
+    # the decrypted secret never lingers on disk, even on crash paths.
+    cleanup_paths: list[Path] = []
+    try:
+        for scanner in request.scanners:
+            is_nuclei = scanner == "nuclei"
+            # Per-scanner auth injection (nuclei + httpx via -H, zap via --hook).
+            auth_args, auth_mounts, auth_cleanup, auth_err = _auth_extras_for(
+                scanner, request.auth_profile_id
+            )
+            if auth_err:
+                raise HTTPException(status_code=400, detail=auth_err)
+            cleanup_paths.extend(auth_cleanup)
+
+            scanner_extras = list(auth_args)
+            scanner_mounts: list[tuple[str, str]] = list(auth_mounts)
+            if is_nuclei:
+                scanner_extras = list(nuclei_args) + scanner_extras
+                scanner_mounts = list(nuclei_mounts) + scanner_mounts
+
+            run = run_scanner(
+                project_id=request.project_id,
+                scanner=scanner,
+                target=request.target,
+                mode=request.mode.value,
+                authorized=request.explicit_authorization,
+                repos=repos,
+                extra_args=scanner_extras or None,
+                extra_mounts=scanner_mounts or None,
+                substitutions=substitutions or None,
+            )
+            repos.runs.add(run)
+            runs.append(run)
+        return runs
+    finally:
+        for path in cleanup_paths:
+            zap_auth.delete_hook_file(path)
 
 
 @router.post("/reports/{project_id}", response_model=Report)

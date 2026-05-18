@@ -9,7 +9,7 @@ Orchestrates 44 real scanners. Preserves evidence. Correlates attack paths. Refu
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 [![Status: active](https://img.shields.io/badge/status-active%20development-gold.svg)](#roadmap)
-[![Backend tests](https://img.shields.io/badge/backend%20tests-183%20passing-brightgreen.svg)](backend/tests)
+[![Backend tests](https://img.shields.io/badge/backend%20tests-196%20passing-brightgreen.svg)](backend/tests)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
 [![Tools](https://img.shields.io/badge/wired%20scanners-44%20of%2094-purple.svg)](#wired-scanners)
@@ -270,15 +270,14 @@ the create_all-vs-Alembic parity contract.
 
 Active development. Next moves, in priority order:
 
-1. **ZAP authenticated scanning** — context files / login users so ZAP can scan past a login (parity with nuclei + httpx auth support).
-2. **More catalog tools wired** — feroxbuster, nikto, wapiti, retire.js, schemathesis, jwt-tool, polaris, docker-bench.
-3. **LLM-assisted triage in PentestBrain** — same citation guard preserved. Bring up the signal-to-noise ratio across hundreds of findings.
-4. **Burp / mitmproxy traffic ingestion** — browse with the proxy, automatically build a target inventory.
-5. **SARIF import/export everywhere** — CI integration becomes one HTTP POST.
-6. **PDF report rendering**.
-7. **CI workflow** (GitHub Actions) running pytest + lint + npm audit on PRs.
-8. **Signed reports + Merkle-proof immutable evidence references**.
-9. **Multi-user workspaces + JWT/SSO auth** — Asura's own access control.
+1. **More catalog tools wired** — feroxbuster, nikto, wapiti, retire.js, schemathesis, jwt-tool, polaris, docker-bench.
+2. **LLM-assisted triage in PentestBrain** — same citation guard preserved. Bring up the signal-to-noise ratio across hundreds of findings.
+3. **Burp / mitmproxy traffic ingestion** — browse with the proxy, automatically build a target inventory.
+4. **SARIF import/export everywhere** — CI integration becomes one HTTP POST.
+5. **PDF report rendering**.
+6. **CI workflow** (GitHub Actions) running pytest + lint + npm audit on PRs.
+7. **Signed reports + Merkle-proof immutable evidence references**.
+8. **Multi-user workspaces + JWT/SSO auth** — Asura's own access control.
 
 ## Contributing
 

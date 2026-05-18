@@ -92,7 +92,8 @@ export function RunScanForm({
 
   const nucleiSelected = scanners.includes("nuclei");
   const httpxSelected = scanners.includes("httpx");
-  const authCapableSelected = nucleiSelected || httpxSelected;
+  const zapSelected = scanners.includes("zap");
+  const authCapableSelected = nucleiSelected || httpxSelected || zapSelected;
   const fuzzerSelected = scanners.some((s) => FUZZER_IDS.has(s));
   const providerSelected = scanners.some((s) => PROVIDER_IDS.has(s));
 
