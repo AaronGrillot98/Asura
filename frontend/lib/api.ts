@@ -244,6 +244,54 @@ export async function getDashboard(projectId: string = "demo"): Promise<Dashboar
   return getJson<DashboardSummary>(`/api/dashboard/${projectId}`);
 }
 
+// ---------------------------------------------------------------------------
+// LLM-assisted triage
+// ---------------------------------------------------------------------------
+
+export type TriageCluster = {
+  id: string;
+  title: string;
+  summary: string;
+  reasoning: string;
+  finding_ids: string[];
+  cited_evidence_ids: string[];
+  severity: Severity;
+  confidence: "low" | "medium" | "high" | "confirmed";
+  fix_recommendation?: string | null;
+};
+
+export type FalsePositiveCandidate = {
+  finding_id: string;
+  reasoning: string;
+  confidence: "low" | "medium" | "high" | "confirmed";
+  cited_evidence_ids: string[];
+};
+
+export type TriagePriorityItem = {
+  finding_id: string;
+  rank: number;
+  reasoning: string;
+  cited_evidence_ids: string[];
+};
+
+export type TriageReport = {
+  project_id: string;
+  engine: "deterministic" | "llm";
+  model?: string | null;
+  summary: string;
+  clusters: TriageCluster[];
+  false_positive_candidates: FalsePositiveCandidate[];
+  priority_order: TriagePriorityItem[];
+  findings_considered: number;
+  claims_dropped: number;
+  generated_at: string;
+};
+
+export async function getTriage(projectId: string, limit?: number): Promise<TriageReport> {
+  const q = limit ? `?limit=${limit}` : "";
+  return getJson<TriageReport>(`/api/projects/${projectId}/triage${q}`);
+}
+
 export async function getArsenal(): Promise<ArsenalSummary> {
   return getJson<ArsenalSummary>(`/api/arsenal`);
 }

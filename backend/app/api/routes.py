@@ -40,6 +40,7 @@ from app.models.schemas import (
     ScopeRules,
     Target,
     TargetCreate,
+    TriageReport,
 )
 from app.repositories import get_repos
 from app.services.job_queue import JobQueue
@@ -599,6 +600,23 @@ def dashboard(project_id: str) -> DashboardSummary:
         fix_first=sorted_findings[:5],
         is_demo_data=any(f.is_demo_data for f in findings) or project.is_demo_data,
     )
+
+
+@router.get("/projects/{project_id}/triage", response_model=TriageReport)
+def project_triage(project_id: str, limit: int | None = None) -> TriageReport:
+    """Run PentestBrain's triage pass over the project's findings.
+
+    Deterministic by default — set `ASURA_LLM_TRIAGE=1` with
+    `ANTHROPIC_API_KEY` to enable LLM-assisted clustering + false-positive
+    scoring. Either way every claim cites real evidence ids; the citation
+    guard discards any LLM output that references ids the brain never
+    handed it.
+    """
+    repos = get_repos()
+    if repos.projects.get(project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    brain = PentestBrain(repos)
+    return brain.triage_findings(project_id, limit=limit)
 
 
 @router.get("/findings", response_model=list[Finding])

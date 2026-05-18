@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Literal
 from pydantic import BaseModel, Field
@@ -328,6 +328,61 @@ class AgentOutput(BaseModel):
     attack_path: dict[str, Any] | None = None
     recommended_next_steps: list[str] = Field(default_factory=list)
     limitations: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# LLM-assisted triage — see services/llm.py and pentest_brain.triage_findings.
+# Each item is grounded in real evidence ids; the citation guard discards
+# anything claiming to cite ids the brain never saw.
+# ---------------------------------------------------------------------------
+
+class TriageCluster(BaseModel):
+    """A group of related findings that should be triaged together."""
+    id: str
+    title: str
+    summary: str
+    reasoning: str
+    finding_ids: list[str] = Field(default_factory=list)
+    cited_evidence_ids: list[str] = Field(default_factory=list)
+    severity: Severity = Severity.medium
+    confidence: Confidence = Confidence.medium
+    fix_recommendation: str | None = None
+
+
+class FalsePositiveCandidate(BaseModel):
+    """A finding the brain considers likely-noise (still requires human sign-off)."""
+    finding_id: str
+    reasoning: str
+    confidence: Confidence = Confidence.medium
+    cited_evidence_ids: list[str] = Field(default_factory=list)
+
+
+class TriagePriorityItem(BaseModel):
+    """A finding placed at a specific rank in the recommended fix order."""
+    finding_id: str
+    rank: int
+    reasoning: str
+    cited_evidence_ids: list[str] = Field(default_factory=list)
+
+
+class TriageReport(BaseModel):
+    """The whole triage output for a project.
+
+    `engine` is `llm` when an LLMClient produced the response, `deterministic`
+    when PentestBrain produced it from rules alone. `claims_dropped` reports
+    how many LLM items the citation guard rejected — surfaced to the UI as a
+    transparency signal.
+    """
+    project_id: str
+    engine: Literal["deterministic", "llm"] = "deterministic"
+    model: str | None = None
+    summary: str
+    clusters: list[TriageCluster] = Field(default_factory=list)
+    false_positive_candidates: list[FalsePositiveCandidate] = Field(default_factory=list)
+    priority_order: list[TriagePriorityItem] = Field(default_factory=list)
+    findings_considered: int = 0
+    claims_dropped: int = 0
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Report(BaseModel):

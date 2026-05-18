@@ -9,7 +9,7 @@ Orchestrates 52 real scanners. Preserves evidence. Correlates attack paths. Refu
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 [![Status: active](https://img.shields.io/badge/status-active%20development-gold.svg)](#roadmap)
-[![Backend tests](https://img.shields.io/badge/backend%20tests-219%20passing-brightgreen.svg)](backend/tests)
+[![Backend tests](https://img.shields.io/badge/backend%20tests-241%20passing-brightgreen.svg)](backend/tests)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
 [![Tools](https://img.shields.io/badge/wired%20scanners-52%20of%2094-purple.svg)](#wired-scanners)
@@ -51,6 +51,7 @@ Orchestrates 52 real scanners. Preserves evidence. Correlates attack paths. Refu
 - **Evidence-first** — every finding carries at least one `Evidence` record with a sha256 content hash and the exact argv used. Raw payloads land at `evidence/<workspace>/<project>/<scan_id>/<tool>.json` and are never overwritten.
 - **Scope-gated** — the safety guard rejects scans against private IPs without `owned_internal=True`, requires explicit authorization for active/lab modes, blocks high-risk tools outside lab mode, and writes one `AuditLog` row per decision (allow or block).
 - **Deterministic reasoning** — `PentestBrain` ranks, deduplicates by fingerprint, correlates findings into attack-path hypotheses, and generates remediation plans. **Every claim cites the evidence IDs that produced it** — no hallucinated vulns.
+- **Optional LLM-assisted triage** — flip `ASURA_LLM_TRIAGE=1` + set `ANTHROPIC_API_KEY` to route the ranked finding list through Claude for clustering and false-positive scoring. The citation guard discards any LLM output that references evidence ids the brain never handed it, so hallucinated findings can't leak into the response. The deterministic baseline still ships as the default.
 - **Persistence built-in** — flip `ASURA_USE_SQL=1` for SQLite or Postgres. Projects, scans, findings, evidence, runs, audit logs, jobs, and remediations survive restarts behind the same Repository interface tests already use.
 - **Authenticated scanning** — Fernet-encrypted auth profiles (bearer / basic / header / cookie) are injected into Nuclei + HTTPx + ZAP at runtime; for ZAP, Asura generates a per-scan `--hook` script that wires Replacer rules at daemon-startup and wipes itself after the scan. Custom Nuclei templates uploaded through the UI are content-hashed and stored on disk.
 - **Reports you can hand to a stakeholder** — Markdown + JSON with engagement summary, scope statement, authorization statement, methodology, tools used, executive summary, risk overview, attack paths, findings by severity, evidence references, remediation roadmap, and a safety statement.
@@ -273,13 +274,12 @@ the create_all-vs-Alembic parity contract.
 
 Active development. Next moves, in priority order:
 
-1. **LLM-assisted triage in PentestBrain** — same citation guard preserved. Bring up the signal-to-noise ratio across hundreds of findings.
-2. **Burp / mitmproxy traffic ingestion** — browse with the proxy, automatically build a target inventory.
-3. **SARIF import/export everywhere** — CI integration becomes one HTTP POST.
-4. **PDF report rendering**.
-5. **CI workflow** (GitHub Actions) running pytest + lint + npm audit on PRs.
-6. **Signed reports + Merkle-proof immutable evidence references**.
-7. **Multi-user workspaces + JWT/SSO auth** — Asura's own access control.
+1. **Burp / mitmproxy traffic ingestion** — browse with the proxy, automatically build a target inventory.
+2. **SARIF import/export everywhere** — CI integration becomes one HTTP POST.
+3. **PDF report rendering**.
+4. **CI workflow** (GitHub Actions) running pytest + lint + npm audit on PRs.
+5. **Signed reports + Merkle-proof immutable evidence references**.
+6. **Multi-user workspaces + JWT/SSO auth** — Asura's own access control.
 
 ## Contributing
 
