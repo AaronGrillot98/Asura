@@ -20,3 +20,57 @@ templates/*
 !templates/.gitkeep
 auth/*
 !auth/.gitkeep
+
+# ============================================================================
+# Local-only overlays — never committed to the Asura repo.
+#
+# Two things install themselves into this working tree but must never
+# leak into a push:
+#
+# 1. Obsidian-mind vault — personal note-taking layer (brain/, work/,
+#    org/, perf/, reference/, thinking/, bases/) plus its config files
+#    (Home.md, AGENTS.md, GEMINI.md, CLAUDE.md, vault-manifest.json,
+#    .obsidian/, .shardmind/, etc.) and the cross-tool agent dirs
+#    (.codex/, .gemini/). Installed by the obsidian-mind v6.1 template.
+#
+# 2. Claude Code skill plugins — anything dropped under .claude/ or
+#    .claude-plugin/ (ui-ux-pro-max-skill, agents, commands, sub-skills,
+#    settings) is local tooling, not project source.
+#
+# To commit a *new* Claude Code skill or vault note back into Asura,
+# override the rule for that specific file with an inverse pattern (`!`).
+# ============================================================================
+
+# Obsidian-mind vault: top-level dirs
+/bases/
+/brain/
+/org/
+/perf/
+/reference/
+/thinking/
+/work/
+
+# Obsidian-mind vault: top-level config / overlay files
+/Home.md
+/AGENTS.md
+/GEMINI.md
+/CLAUDE.md
+/vault-manifest.json
+/.gitignore.asura.bak
+/.mcp.json
+/.shardmindignore
+
+# Obsidian-mind vault: hidden config dirs
+/.codex/
+/.gemini/
+/.obsidian/
+/.shardmind/
+/.Trash/
+/.qmd/
+
+# Obsidian-mind vault: helper scripts dir (Asura's repo doesn't ship one)
+/scripts/
+
+# Claude Code project-local skills / agents / commands / plugin metadata
+/.claude/
+/.claude-plugin/
