@@ -738,3 +738,38 @@ class TargetCreate(BaseModel):
     lab_mode_enabled: bool = False
     owned_internal: bool = False
     notes: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# HAR (HTTP Archive) traffic ingestion — Burp + mitmproxy + DevTools all
+# export this format. See services/har_import.py.
+# ---------------------------------------------------------------------------
+
+
+class HarEndpoint(BaseModel):
+    """One unique (method, host, path) seen in the captured traffic."""
+    method: str
+    host: str
+    path: str
+    sample_url: str
+    status_codes: list[int] = Field(default_factory=list)
+    param_names: list[str] = Field(default_factory=list)
+    seen_count: int = 1
+
+
+class HarImportSummary(BaseModel):
+    """Result of `POST /api/projects/{id}/imports/har`.
+
+    Counts at the top, then the structured catalog. `new_targets`
+    contains the Target rows the importer actually created (existing
+    hosts are skipped, not duplicated)."""
+    project_id: str
+    entries_processed: int
+    hosts: list[str] = Field(default_factory=list)
+    endpoints: list[HarEndpoint] = Field(default_factory=list)
+    js_files: list[str] = Field(default_factory=list)
+    auth_required_paths: list[str] = Field(default_factory=list)
+    status_buckets: dict[str, int] = Field(default_factory=dict)
+    skipped: list[str] = Field(default_factory=list)
+    new_targets: list[Target] = Field(default_factory=list)
+    respect_scope: bool = False

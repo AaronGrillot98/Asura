@@ -34,6 +34,7 @@ from app.models.schemas import (
     RegistryContractReport,
     Report,
     ReportRequest,
+    HarImportSummary,
     LLMSettings,
     LLMSettingsUpdate,
     ScanJob,
@@ -55,6 +56,7 @@ from app.services.pipelines import list_pipelines
 from app.services.templates_service import TemplateValidationError, TemplatesService
 from app.services import zap_auth
 from app.services.auth_profile_service import AuthProfileService
+from app.services.har_import import HarParseError, ingest_har, parse_har_bytes
 from app.services.llm_settings_service import LLMSettingsService
 from app.security.blocked_capabilities import as_dicts as blocked_capabilities_dicts
 from app.security.scope_guard import decide_scope, validate_scan_scope
@@ -289,6 +291,36 @@ def add_project_target(project_id: str, request: TargetCreate) -> Target:
     )
     repos.targets.add(target)
     return target
+
+
+@router.post("/projects/{project_id}/imports/har", response_model=HarImportSummary)
+async def import_har(
+    project_id: str,
+    file: UploadFile = File(...),
+    respect_scope: bool = Query(default=False, description="Skip entries whose host isn't in the project's allowed_domains."),
+) -> HarImportSummary:
+    """Ingest a HAR (HTTP Archive) capture exported from Burp, mitmproxy,
+    Caido, or DevTools. Creates one Target per unique host, returns the
+    full endpoint catalog plus a status-code histogram, JS file
+    inventory, and an auth-required path list.
+    """
+    repos = get_repos()
+    project = repos.projects.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    blob = await file.read()
+    if not blob:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(blob) > 64 * 1024 * 1024:
+        # 64 MiB cap. HAR files for moderate browsing sessions are
+        # typically <10 MiB; anything bigger is almost always a giant
+        # response body that's not useful here.
+        raise HTTPException(status_code=413, detail="HAR upload exceeds 64 MiB.")
+    try:
+        doc = parse_har_bytes(blob)
+    except HarParseError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ingest_har(repos=repos, project=project, har_doc=doc, respect_scope=respect_scope)
 
 
 @router.delete("/projects/{project_id}/targets/{target_id}", status_code=204, response_class=Response)

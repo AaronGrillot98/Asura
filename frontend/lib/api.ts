@@ -338,6 +338,53 @@ export async function deleteLLMSettings(): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// HAR (HTTP Archive) import — Burp / mitmproxy / DevTools captures
+// ---------------------------------------------------------------------------
+
+export type HarEndpoint = {
+  method: string;
+  host: string;
+  path: string;
+  sample_url: string;
+  status_codes: number[];
+  param_names: string[];
+  seen_count: number;
+};
+
+export type HarImportSummary = {
+  project_id: string;
+  entries_processed: number;
+  hosts: string[];
+  endpoints: HarEndpoint[];
+  js_files: string[];
+  auth_required_paths: string[];
+  status_buckets: Record<string, number>;
+  skipped: string[];
+  new_targets: Target[];
+  respect_scope: boolean;
+};
+
+export async function importHar(
+  projectId: string,
+  file: File,
+  options: { respectScope?: boolean } = {},
+): Promise<HarImportSummary> {
+  const form = new FormData();
+  form.append("file", file);
+  const qs = options.respectScope ? "?respect_scope=true" : "";
+  const res = await fetch(`${API_URL}/api/projects/${projectId}/imports/har${qs}`, {
+    method: "POST",
+    body: form,
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(detail || `POST /api/projects/${projectId}/imports/har failed: ${res.status}`);
+  }
+  return (await res.json()) as HarImportSummary;
+}
+
 export async function getArsenal(): Promise<ArsenalSummary> {
   return getJson<ArsenalSummary>(`/api/arsenal`);
 }

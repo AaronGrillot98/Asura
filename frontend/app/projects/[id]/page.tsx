@@ -5,6 +5,7 @@ import { DemoBadge, SeverityBadge } from "@/components/badges";
 import { TargetsSection } from "@/components/targets-section";
 import { DeleteProjectButton } from "@/components/delete-project-button";
 import { RunScanForm } from "@/components/run-scan-form";
+import { HarImportSection } from "@/components/har-import-section";
 
 export const dynamic = "force-dynamic";
 
@@ -143,6 +144,8 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
       ) : (
         <TargetsSection projectId={project.id} initial={targets} />
       )}
+
+      <HarImportSection projectId={project.id} />
 
       {dashboard && dashboard.findings.length > 0 ? (
         <section className="panel" style={{ marginTop: 14 }}>
