@@ -12,6 +12,11 @@ dist/
 *.err
 *.tsbuildinfo
 
+# Ed25519 signing key for reports — private material, never commit.
+# Path is configurable via ASURA_SIGNING_KEY_PATH.
+asura-signing-key.pem
+**/asura-signing-key.pem
+
 postgres-data/
 evidence/*
 !evidence/.gitkeep

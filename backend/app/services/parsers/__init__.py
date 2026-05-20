@@ -18,6 +18,8 @@ from . import (  # noqa: F401  re-export the parser modules
     brakeman,
     cargo_audit,
     checkov,
+    dalfox,
+    detect_secrets,
     dirsearch,
     discovery,
     docker_bench,
@@ -31,6 +33,7 @@ from . import (  # noqa: F401  re-export the parser modules
     grype,
     httpx,
     jwt_tool,
+    kics,
     kube_bench,
     kube_score,
     kubescape,
@@ -49,9 +52,11 @@ from . import (  # noqa: F401  re-export the parser modules
     semgrep,
     subfinder,
     syft,
+    terrascan,
     trivy,
     trufflehog,
     wapiti,
+    yara,
     zap,
 )
 
@@ -166,6 +171,17 @@ PARSERS: dict[str, ParserFn] = {
     "polaris_json": polaris.parse,
     "docker-bench-security": docker_bench.parse,
     "docker_bench_json": docker_bench.parse,
+    # slice 24: web XSS + secrets/IaC/yara
+    "dalfox": dalfox.parse,
+    "dalfox_json": dalfox.parse,
+    "detect-secrets": detect_secrets.parse,
+    "detect_secrets_json": detect_secrets.parse,
+    "kics": kics.parse,
+    "kics_json": kics.parse,
+    "terrascan": terrascan.parse,
+    "terrascan_json": terrascan.parse,
+    "yara": yara.parse,
+    "yara_text": yara.parse,
     # generic
     "sarif": sarif.parse,
 }

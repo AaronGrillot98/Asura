@@ -813,11 +813,12 @@ tools:
     execution: optional_pack
     modes: [active, lab]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: MIT
     official_url: https://github.com/hahwul/dalfox
     executable: dalfox
-    install_hint: "Install from Dalfox releases."
+    install_hint: "Install from Dalfox releases or use `hahwul/dalfox:latest` via Docker."
+    docker_image: hahwul/dalfox:latest
     input_types: [url, parameter]
     output_formats: [json, plain]
     parser: dalfox_json
@@ -825,11 +826,16 @@ tools:
     requires_authorized_scope: true
     docker_available: true
     supported_os: [linux, macos, windows]
+    target_kind: url
     commands:
       - mode: active
-        command: "dalfox url {{target}} --format json"
+        command: "dalfox url {{target}} --format json --silence"
+      - mode: lab
+        command: "dalfox url {{target}} --format json --silence"
     recommended_use: "Validate reflected XSS candidates from crawlers and parameter discovery."
     risk_warning: "Payload testing can alter app logs and trigger defenses."
+    risk_level: medium
+    tags: [web, xss]
 
   - id: codeql
     name: CodeQL
@@ -1198,11 +1204,12 @@ tools:
     execution: optional_pack
     modes: [passive, lab]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: BSD-3-Clause
     official_url: https://github.com/VirusTotal/yara
     executable: yara
-    install_hint: "Install from OS packages or VirusTotal releases."
+    install_hint: "Install from OS packages or use `blacktop/yara:latest` via Docker."
+    docker_image: blacktop/yara:latest
     input_types: [file, directory, rule]
     output_formats: [text, json]
     parser: yara_text
@@ -1210,11 +1217,16 @@ tools:
     requires_authorized_scope: false
     docker_available: true
     supported_os: [linux, macos, windows]
+    target_kind: filesystem
     commands:
       - mode: passive
-        command: "yara {{rules}} {{target}}"
+        command: "yara -r {{rules}} {{target}}"
+      - mode: lab
+        command: "yara -r -s {{rules}} {{target}}"
     recommended_use: "Scan evidence and artifacts with defensive detection rules."
     risk_warning: null
+    risk_level: low
+    tags: [detection, malware, forensics]
 
   - id: garak
     name: Garak
@@ -1814,18 +1826,23 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: Apache-2.0
     official_url: https://github.com/Yelp/detect-secrets
-    executable: null
+    executable: detect-secrets
+    install_hint: "Install with `pipx install detect-secrets` or use `cytopia/detect-secrets:latest` via Docker."
+    docker_image: cytopia/detect-secrets:latest
     input_types: [repository, file]
     output_formats: [json]
-    parser: null
+    parser: detect_secrets_json
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
     supported_os: [linux, macos, windows]
-    commands: []
+    target_kind: filesystem
+    commands:
+      - mode: passive
+        command: "detect-secrets scan {{target}}"
     recommended_use: "Yelp's enterprise-friendly secret scanner with baseline support."
     risk_warning: null
     risk_level: low
@@ -1885,18 +1902,23 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: Apache-2.0
     official_url: https://kics.io/
-    executable: null
+    executable: kics
+    install_hint: "Install KICS or use `checkmarx/kics:latest` via Docker."
+    docker_image: checkmarx/kics:latest
     input_types: [repository, terraform, kubernetes]
     output_formats: [json, sarif]
-    parser: null
+    parser: kics_json
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
     supported_os: [linux, macos, windows]
-    commands: []
+    target_kind: filesystem
+    commands:
+      - mode: passive
+        command: "kics scan -p {{target}} --report-formats json --no-progress"
     recommended_use: "Multi-IaC misconfiguration scanner from Checkmarx."
     risk_warning: null
     risk_level: low
@@ -1909,18 +1931,23 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: Apache-2.0
     official_url: https://runterrascan.io/
-    executable: null
+    executable: terrascan
+    install_hint: "Install Terrascan or use `tenable/terrascan:latest` via Docker."
+    docker_image: tenable/terrascan:latest
     input_types: [terraform, kubernetes]
     output_formats: [json, sarif]
-    parser: null
+    parser: terrascan_json
     safe_default: true
     requires_authorized_scope: false
     docker_available: true
     supported_os: [linux, macos, windows]
-    commands: []
+    target_kind: filesystem
+    commands:
+      - mode: passive
+        command: "terrascan scan -d {{target}} -o json"
     recommended_use: "Policy-driven IaC misconfiguration scanner."
     risk_warning: null
     risk_level: low

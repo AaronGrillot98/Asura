@@ -616,6 +616,18 @@ export function sarifUrl(projectId: string) {
   return `${API_URL}/api/projects/${projectId}/findings.sarif`;
 }
 
+export function pdfReportUrl(projectId: string) {
+  return `${API_URL}/api/reports/${projectId}/pdf`;
+}
+
+export function signedReportUrl(projectId: string) {
+  return `${API_URL}/api/reports/${projectId}/signed.json`;
+}
+
+export function signingKeyUrl() {
+  return `${API_URL}/api/reports/signing-key`;
+}
+
 export type SarifImportSummary = {
   project_id: string;
   runs_processed: number;
