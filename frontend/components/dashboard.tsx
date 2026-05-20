@@ -1,21 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import {
   Activity,
   AlertTriangle,
+  Box,
+  Cloud,
+  Code2,
   CheckCircle2,
   Download,
   GitBranch,
+  Globe,
+  KeyRound,
   Network,
   PackageCheck,
   Radar,
   ShieldAlert,
+  Sparkles,
   TerminalSquare,
+  Wifi,
 } from "lucide-react";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { ReactNode } from "react";
+import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ArsenalSummary, DashboardSummary, Finding, ScannerRun, Severity } from "@/lib/api";
 import { reportUrl } from "@/lib/api";
+import { relativeTime } from "@/lib/time";
 import { RunScanForm } from "@/components/run-scan-form";
 import {
   Card,
@@ -35,16 +46,24 @@ const severityWeight: Record<Severity, number> = {
   info: 1,
 };
 
-const COVERAGE_DOMAINS: { id: string; label: string; categories: string[] }[] = [
-  { id: "code", label: "Code", categories: ["code"] },
-  { id: "web", label: "Web", categories: ["web", "dast"] },
-  { id: "api", label: "API", categories: ["api", "api security"] },
-  { id: "container", label: "Container", categories: ["container", "sbom"] },
-  { id: "secrets", label: "Secrets", categories: ["secrets"] },
-  { id: "deps", label: "Dependencies", categories: ["dependency"] },
-  { id: "iac", label: "IaC / Cloud", categories: ["iac"] },
-  { id: "network", label: "Network", categories: ["network"] },
-  { id: "ai", label: "AI / LLM", categories: ["llm security", "ai"] },
+type CoverageDomain = {
+  id: string;
+  label: string;
+  categories: string[];
+  icon: ReactNode;
+  tone: "accent" | "ok" | "warn" | "danger" | "info" | "violet";
+};
+
+const COVERAGE_DOMAINS: CoverageDomain[] = [
+  { id: "code",      label: "Code",         categories: ["code"],                  icon: <Code2 size={18} />,        tone: "info" },
+  { id: "web",       label: "Web",          categories: ["web", "dast"],           icon: <Globe size={18} />,        tone: "accent" },
+  { id: "api",       label: "API",          categories: ["api", "api security"],   icon: <Network size={18} />,      tone: "violet" },
+  { id: "container", label: "Container",    categories: ["container", "sbom"],     icon: <Box size={18} />,          tone: "ok" },
+  { id: "secrets",   label: "Secrets",      categories: ["secrets"],               icon: <KeyRound size={18} />,     tone: "danger" },
+  { id: "deps",      label: "Dependencies", categories: ["dependency"],            icon: <PackageCheck size={18} />, tone: "warn" },
+  { id: "iac",       label: "IaC / Cloud",  categories: ["iac"],                   icon: <Cloud size={18} />,        tone: "info" },
+  { id: "network",   label: "Network",      categories: ["network"],               icon: <Wifi size={18} />,         tone: "violet" },
+  { id: "ai",        label: "AI / LLM",     categories: ["llm security", "ai"],    icon: <Sparkles size={18} />,     tone: "accent" },
 ];
 
 function countSeverity(findings: Finding[], severity: Severity) {
@@ -63,8 +82,41 @@ function coverageCount(findings: Finding[], categories: string[]): number {
   return findings.filter((f) => set.has((f.category || "").toLowerCase())).length;
 }
 
+function severityTone(sev: Severity): "danger" | "warn" | "ok" | "info" | "muted" {
+  if (sev === "critical" || sev === "high") return "danger";
+  if (sev === "medium") return "warn";
+  if (sev === "low") return "ok";
+  if (sev === "info") return "info";
+  return "muted";
+}
+
+const HOTKEYS: Record<string, string> = {
+  "1": "/arsenal",
+  "2": "/reports",
+  "3": "/audit",
+};
+
 export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: ArsenalSummary }) {
+  const router = useRouter();
   const path = data.attack_paths[0];
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (target?.isContentEditable) return;
+      const dest = HOTKEYS[e.key];
+      if (dest) {
+        e.preventDefault();
+        router.push(dest);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [router]);
+
   const criticalCount = countSeverity(data.findings, "critical");
   const highCount = countSeverity(data.findings, "high");
   const runnableTools = arsenal.tools.filter(
@@ -143,7 +195,7 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
       <div className="grid two">
         <section className="panel">
           <div className="panelTitle">
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="row gap-2">
               <Activity size={16} />
               <h2>Risk Trend</h2>
             </div>
@@ -183,6 +235,12 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
                       borderRadius: 8,
                     }}
                   />
+                  <ReferenceLine
+                    y={80}
+                    stroke="var(--danger)"
+                    strokeDasharray="3 3"
+                    label={{ value: "Danger", position: "right", fill: "var(--danger)", fontSize: 11 }}
+                  />
                   <Area type="monotone" dataKey="score" stroke="var(--danger)" fill="url(#risk)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -192,19 +250,23 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
 
         <section className="panel">
           <div className="panelTitle">
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="row gap-2">
               <Radar size={16} />
               <h2>Coverage by domain</h2>
             </div>
             <small>Findings per category</small>
           </div>
-          <div className="grid three" style={{ gap: 8 }}>
+          <div className="grid three coverageGrid">
             {COVERAGE_DOMAINS.map((domain) => {
               const count = coverageCount(data.findings, domain.categories);
               return (
-                <div key={domain.id} className="card" style={{ padding: 12, gap: 4 }}>
-                  <span className="cardSubtle">{domain.label}</span>
-                  <strong style={{ fontSize: 20, color: count > 0 ? "var(--text-1)" : "var(--text-3)" }}>{count}</strong>
+                <div key={domain.id} className="card coverageTile">
+                  <div className={`iconTile ${count > 0 ? domain.tone : "muted"}`}>{domain.icon}</div>
+                  <div className="coverageMeta">
+                    <span className="cardSubtle">{domain.label}</span>
+                    <strong className={count > 0 ? "coverageCount" : "coverageCount muted"}>{count}</strong>
+                  </div>
+                  <StatusDot kind={count > 0 ? "danger" : "muted"} title={count > 0 ? `${count} finding(s)` : "clean"} />
                 </div>
               );
             })}
@@ -225,20 +287,20 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
             }
           />
           <div className="grid two">
-            <Card>
+            <Card className="accent-danger">
               <div className="cardHeader">
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div className="row gap-2">
                   <GitBranch size={16} />
                   <span className="cardSubtle">Most dangerous chain</span>
                 </div>
-                <div style={{ display: "flex", gap: 6 }}>
+                <div className="row gap-2">
                   {path.severity ? <SeverityBadge severity={path.severity} /> : null}
                   <ConfidenceBadge confidence={path.confidence ?? "medium"} />
                 </div>
               </div>
               <div className="cardTitle">{path.title}</div>
               <p className="cardBody">{path.narrative ?? path.summary}</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              <div className="row-wrap gap-1">
                 {path.finding_ids.map((id) => (
                   <span key={id} className="inlineCode">{id}</span>
                 ))}
@@ -251,7 +313,7 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
 
             <section className="panel">
               <div className="panelTitle">
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div className="row gap-2">
                   <CheckCircle2 size={16} />
                   <h2>Fix these first</h2>
                 </div>
@@ -270,7 +332,6 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
                       href={`/findings/${finding.id}`}
                       key={finding.id}
                       className="fix"
-                      style={{ textDecoration: "none" }}
                     >
                       <span>{index + 1}</span>
                       <div>
@@ -307,29 +368,26 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
         <div className="grid three">
           {data.scanner_runs.slice(0, 6).map((run) => {
             const kind = runHealth(run);
+            const when = relativeTime(run.finished_at ?? run.started_at);
             return (
-              <Card key={run.id} interactive>
-                <Link href={`/scans/${run.id}`} style={{ textDecoration: "none", color: "inherit", display: "contents" }}>
-                  <div className="cardHeader">
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <StatusDot kind={kind} title={run.status} />
-                      <div>
-                        <div className="cardTitle">
-                          <code className="inlineCode">{run.scanner}</code>
-                        </div>
-                        <small style={{ color: "var(--text-3)" }}>{run.mode}</small>
-                      </div>
+              <Card key={run.id} href={`/scans/${run.id}`}>
+                <div className="launcher">
+                  <div className={`iconTile ${kind}`}>
+                    <TerminalSquare size={20} />
+                  </div>
+                  <div className="launcherText">
+                    <div className="launcherTitle">
+                      <code className="inlineCode">{run.scanner}</code>
                     </div>
-                    <small className={`status ${run.status}`}>{run.status}</small>
+                    <small className="launcherSub">{run.mode}</small>
                   </div>
-                  <p className="cardBody" style={{ fontSize: 12, color: "var(--text-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {run.target}
-                  </p>
-                  <div className="cardFooter">
-                    <span>{run.findings_created ?? 0} finding(s) created</span>
-                    <span>{run.is_demo_data ? "demo" : "live"}</span>
-                  </div>
-                </Link>
+                  <span className={`statusPill ${kind}`}>{run.status}</span>
+                </div>
+                <p className="cardBody muted truncate">{run.target}</p>
+                <div className="cardFooter">
+                  <span>{run.findings_created ?? 0} finding(s) created</span>
+                  <span>{when}</span>
+                </div>
               </Card>
             );
           })}
@@ -347,22 +405,20 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
             {data.agent_outputs.map((output, idx) => (
               <Card key={`${output.agent}-${idx}`}>
                 <div className="cardHeader">
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div className="row gap-3">
                     <StatusDot kind={output.confidence === "confirmed" || output.confidence === "high" ? "ok" : output.confidence === "medium" ? "info" : "muted"} />
                     <span className="cardSubtle">{output.agent.replaceAll("_", " ")}</span>
                   </div>
-                  <small style={{ color: "var(--text-3)" }}>{output.confidence}</small>
+                  <small>{output.confidence}</small>
                 </div>
                 <p className="cardBody">{output.summary}</p>
                 {output.cited_evidence_ids && output.cited_evidence_ids.length > 0 ? (
-                  <small style={{ color: "var(--text-3)" }}>
-                    Cites {output.cited_evidence_ids.length} evidence record(s).
-                  </small>
+                  <small>Cites {output.cited_evidence_ids.length} evidence record(s).</small>
                 ) : null}
                 {output.recommended_next_steps.length > 0 ? (
-                  <ul style={{ margin: 0, paddingLeft: 18, color: "var(--text-2)", lineHeight: 1.6 }}>
+                  <ul className="recommendList">
                     {output.recommended_next_steps.slice(0, 3).map((step, i) => (
-                      <li key={i} style={{ fontSize: 13 }}>{step}</li>
+                      <li key={i}>{step}</li>
                     ))}
                   </ul>
                 ) : null}
@@ -392,24 +448,27 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
       ) : (
         <div className="grid two">
           {sortedFindings.slice(0, 6).map((finding) => (
-            <Card key={finding.id} interactive>
-              <Link href={`/findings/${finding.id}`} style={{ textDecoration: "none", color: "inherit", display: "contents" }}>
-                <div className="cardHeader">
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <SeverityBadge severity={finding.severity} />
-                    <ConfidenceBadge confidence={finding.confidence} />
-                  </div>
-                  <small style={{ color: "var(--text-3)" }}>
+            <Card key={finding.id} href={`/findings/${finding.id}`}>
+              <div className="launcher">
+                <div className={`iconTile ${severityTone(finding.severity)}`}>
+                  <ShieldAlert size={20} />
+                </div>
+                <div className="launcherText">
+                  <div className="launcherTitle">{finding.title}</div>
+                  <small className="launcherSub">
                     <code className="inlineCode">{finding.scanner}</code>
                   </small>
                 </div>
-                <div className="cardTitle">{finding.title}</div>
-                <p className="cardBody" style={{ fontSize: 13 }}>{finding.impact}</p>
-                <div className="cardFooter">
-                  <span>{finding.affected_asset ?? finding.asset_id}</span>
+                <SeverityBadge severity={finding.severity} />
+              </div>
+              <p className="cardBody">{finding.impact}</p>
+              <div className="cardFooter">
+                <span>{finding.affected_asset ?? finding.asset_id}</span>
+                <div className="row gap-2">
+                  <ConfidenceBadge confidence={finding.confidence} />
                   <span>Open →</span>
                 </div>
-              </Link>
+              </div>
             </Card>
           ))}
         </div>
@@ -418,41 +477,36 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
       {/* ---- Quick links --------------------------------------------------- */}
       <SectionHeader title="Quick links" />
       <div className="grid three">
-        <Link href="/arsenal" style={{ textDecoration: "none", color: "inherit" }}>
-          <Card interactive>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div className="metricIcon"><PackageCheck size={16} /></div>
-              <div>
-                <div className="cardTitle">Arsenal</div>
-                <small style={{ color: "var(--text-3)" }}>
-                  {arsenal.tools.length} tools · {runnableTools} runner-ready
-                </small>
-              </div>
+        <Card href="/arsenal">
+          <div className="launcher">
+            <div className="iconTile accent"><PackageCheck size={20} /></div>
+            <div className="launcherText">
+              <div className="launcherTitle">Arsenal</div>
+              <small className="launcherSub">{arsenal.tools.length} tools · {runnableTools} runner-ready</small>
             </div>
-          </Card>
-        </Link>
-        <Link href="/reports" style={{ textDecoration: "none", color: "inherit" }}>
-          <Card interactive>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div className="metricIcon"><Download size={16} /></div>
-              <div>
-                <div className="cardTitle">Reports</div>
-                <small style={{ color: "var(--text-3)" }}>Markdown + JSON with scope, evidence, safety statement</small>
-              </div>
+            <span className="hotkeyBadge" aria-hidden="true">1</span>
+          </div>
+        </Card>
+        <Card href="/reports">
+          <div className="launcher">
+            <div className="iconTile violet"><Download size={20} /></div>
+            <div className="launcherText">
+              <div className="launcherTitle">Reports</div>
+              <small className="launcherSub">Markdown + JSON with scope &amp; evidence</small>
             </div>
-          </Card>
-        </Link>
-        <Link href="/audit" style={{ textDecoration: "none", color: "inherit" }}>
-          <Card interactive>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div className="metricIcon"><Network size={16} /></div>
-              <div>
-                <div className="cardTitle">Audit log</div>
-                <small style={{ color: "var(--text-3)" }}>Every scope decision recorded</small>
-              </div>
+            <span className="hotkeyBadge" aria-hidden="true">2</span>
+          </div>
+        </Card>
+        <Card href="/audit">
+          <div className="launcher">
+            <div className="iconTile info"><Network size={20} /></div>
+            <div className="launcherText">
+              <div className="launcherTitle">Audit log</div>
+              <small className="launcherSub">Every scope decision recorded</small>
             </div>
-          </Card>
-        </Link>
+            <span className="hotkeyBadge" aria-hidden="true">3</span>
+          </div>
+        </Card>
       </div>
     </>
   );

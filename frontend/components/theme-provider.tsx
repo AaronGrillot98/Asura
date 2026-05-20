@@ -2,7 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
-export type Theme = "dark" | "light";
+export type Theme = "dark" | "light" | "neon";
+const THEME_CYCLE: Theme[] = ["dark", "light", "neon"];
 const STORAGE_KEY = "asura-theme";
 
 type ThemeContextValue = {
@@ -17,10 +18,10 @@ function readInitial(): Theme {
   if (typeof window === "undefined") return "dark";
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "dark" || stored === "light") return stored;
-    return document.documentElement.getAttribute("data-theme") === "light"
-      ? "light"
-      : "dark";
+    if (stored === "dark" || stored === "light" || stored === "neon") return stored;
+    const attr = document.documentElement.getAttribute("data-theme");
+    if (attr === "light" || attr === "neon") return attr;
+    return "dark";
   } catch {
     return "dark";
   }
@@ -47,7 +48,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setTheme = useCallback((next: Theme) => setThemeState(next), []);
   const toggle = useCallback(
-    () => setThemeState((cur) => (cur === "dark" ? "light" : "dark")),
+    () =>
+      setThemeState((cur) => {
+        const idx = THEME_CYCLE.indexOf(cur);
+        return THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
+      }),
     []
   );
 

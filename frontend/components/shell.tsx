@@ -93,13 +93,16 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="shell" data-sidebar-open={sidebarOpen ? "true" : "false"}>
+      <a href="#main" className="skipLink">Skip to main content</a>
       <button
         type="button"
         className="sidebarOverlay"
         aria-label="Close navigation"
+        aria-hidden={!sidebarOpen}
+        tabIndex={sidebarOpen ? 0 : -1}
         onClick={() => setSidebarOpen(false)}
       />
-      <aside className="sidebar">
+      <aside id="sidebar" className="sidebar">
         <div className="brand">
           <div className="mark">A</div>
           <div>
@@ -130,12 +133,13 @@ export function Shell({ children }: { children: ReactNode }) {
           <ThemeToggle />
         </div>
       </aside>
-      <main className="content">
+      <main id="main" className="content">
         <button
           type="button"
           className="sidebarToggle"
           aria-label="Open navigation"
           aria-expanded={sidebarOpen}
+          aria-controls="sidebar"
           onClick={() => setSidebarOpen((v) => !v)}
         >
           <Menu size={18} />
