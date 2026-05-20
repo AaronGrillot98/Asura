@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 /**
  * UI primitives shared across pages. Tokens-only — never inline colors.
@@ -15,7 +16,10 @@ import type { ReactNode } from "react";
 export type StatusKind = "ok" | "warn" | "danger" | "info" | "muted";
 
 export function StatusDot({ kind = "muted", title }: { kind?: StatusKind; title?: string }) {
-  return <span className={`statusDot ${kind}`} title={title} aria-label={title} />;
+  if (title) {
+    return <span className={`statusDot ${kind}`} role="img" aria-label={title} title={title} />;
+  }
+  return <span className={`statusDot ${kind}`} aria-hidden="true" />;
 }
 
 export function SectionHeader({
@@ -31,8 +35,8 @@ export function SectionHeader({
 }) {
   return (
     <header className="sectionHeader">
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div className="stack-1">
+        <div className="row gap-3">
           <h2>{title}</h2>
           {count !== undefined && count !== null ? (
             <span className="sectionCount">{count}</span>
@@ -40,7 +44,7 @@ export function SectionHeader({
         </div>
         {description ? <small>{description}</small> : null}
       </div>
-      {actions ? <div style={{ display: "flex", gap: 8 }}>{actions}</div> : null}
+      {actions ? <div className="row gap-2">{actions}</div> : null}
     </header>
   );
 }
@@ -51,18 +55,26 @@ export function Card({
   footer,
   className,
   style,
+  href,
 }: {
   children: ReactNode;
   interactive?: boolean;
   footer?: ReactNode;
   className?: string;
   style?: React.CSSProperties;
+  href?: string;
 }) {
+  const cls = `card${interactive || href ? " interactive" : ""}${className ? ` ${className}` : ""}`;
+  if (href) {
+    return (
+      <Link href={href} className={cls} style={style}>
+        {children}
+        {footer ? <div className="cardFooter">{footer}</div> : null}
+      </Link>
+    );
+  }
   return (
-    <article
-      className={`card${interactive ? " interactive" : ""}${className ? ` ${className}` : ""}`}
-      style={style}
-    >
+    <article className={cls} style={style}>
       {children}
       {footer ? <div className="cardFooter">{footer}</div> : null}
     </article>
@@ -82,13 +94,14 @@ export function MetricCard({
   tone?: "danger" | "warn" | "ok";
   icon?: ReactNode;
 }) {
+  const tileTone = tone ?? "muted";
   return (
     <section className="metric">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+      <div className="row-between" style={{ width: "100%" }}>
         <span>{label}</span>
-        {icon ? <div className={`metricIcon${tone ? ` ${tone}` : ""}`}>{icon}</div> : null}
+        {icon ? <div className={`iconTile ${tileTone}`}>{icon}</div> : null}
       </div>
-      <strong>{value}</strong>
+      <strong className={tone ? `metricValue ${tone}` : "metricValue"}>{value}</strong>
       {hint ? <small>{hint}</small> : null}
     </section>
   );

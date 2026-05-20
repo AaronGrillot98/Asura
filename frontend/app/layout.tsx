@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Shell } from "@/components/shell";
 import { ThemeProvider } from "@/components/theme-provider";
+import { AuthProvider } from "@/components/auth-provider";
 
 export const metadata: Metadata = {
   title: "Asura",
@@ -14,7 +15,7 @@ const themeBoot = `
 (function () {
   try {
     var stored = localStorage.getItem("asura-theme");
-    var theme = stored === "light" ? "light" : "dark";
+    var theme = stored === "light" || stored === "neon" ? stored : "dark";
     document.documentElement.setAttribute("data-theme", theme);
   } catch (e) {
     document.documentElement.setAttribute("data-theme", "dark");
@@ -30,7 +31,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body>
         <ThemeProvider>
-          <Shell>{children}</Shell>
+          <AuthProvider>
+            <Shell>{children}</Shell>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
