@@ -43,14 +43,17 @@ def test_planned_catalog_additions_have_no_runnable_commands() -> None:
     #     (slice 10: fuzzers + K8s/cloud)
     #   - feroxbuster, nikto, wapiti, retirejs, schemathesis, jwt-tool,
     #     polaris, docker-bench-security (slice 15: more catalog tools wired)
+    #   - detect-secrets, kics, terrascan (slice 24: secrets + IaC pack;
+    #     dalfox + yara were already commanded entries that just had their
+    #     integration_status flipped, so they were never tracked here)
     # Anything still in this set is intentionally not yet runnable.
     catalog_only_additions = {
         "arjun",
         "kxss", "linkfinder", "secretfinder", "corsy", "crlfuzz",
         "openredirex", "kiterunner", "graphql-voyager", "inql",
         "graphql-cop", "restler", "postman-importer", "openapi-parser",
-        "detect-secrets", "whispers", "detect-secrets-baseline",
-        "kics", "terrascan", "tfsec-compatible", "cloudsplaining", "scoutsuite",
+        "whispers", "detect-secrets-baseline",
+        "tfsec-compatible", "cloudsplaining", "scoutsuite",
         "steampipe", "parliament", "cfn-nag",
         "falco",
         "suricata-rules", "zeek", "osquery", "chainsaw", "hayabusa",
