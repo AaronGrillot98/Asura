@@ -75,6 +75,120 @@ class Workspace(BaseModel):
     created_at: datetime
 
 
+class Role(str, Enum):
+    """Role within a Workspace. Owners can do everything including deleting
+    the workspace; admins manage members + tokens; members can read/write
+    project data; viewers are read-only."""
+    owner = "owner"
+    admin = "admin"
+    member = "member"
+    viewer = "viewer"
+
+
+class User(BaseModel):
+    """Account record. Password storage is delegated to security.auth; the
+    `password_hash` field carries an opaque PBKDF2 digest, never plaintext."""
+    id: str
+    email: str
+    display_name: str
+    password_hash: str | None = None     # null when the user signed up via SSO
+    sso_subject: str | None = None       # opaque issuer-sub identifier when SSO
+    sso_issuer: str | None = None        # e.g. https://accounts.google.com
+    is_active: bool = True
+    created_at: datetime
+    last_login_at: datetime | None = None
+
+
+class UserPublic(BaseModel):
+    """User record minus secrets — what /api/auth/me and member listings return."""
+    id: str
+    email: str
+    display_name: str
+    is_active: bool
+    created_at: datetime
+    last_login_at: datetime | None = None
+
+
+class Membership(BaseModel):
+    """Join row between a User and a Workspace, carrying their role."""
+    id: str
+    workspace_id: str
+    user_id: str
+    role: Role
+    created_at: datetime
+
+
+class WorkspaceMember(BaseModel):
+    """Workspace membership inflated for API responses (user + role)."""
+    user: UserPublic
+    role: Role
+    joined_at: datetime
+
+
+class ApiToken(BaseModel):
+    """Long-lived service token for CI/automation. The plaintext token is
+    only returned once at creation time; afterwards we only retain the
+    `token_hash` and the last-4 prefix for UI display."""
+    id: str
+    user_id: str
+    workspace_id: str
+    name: str
+    token_hash: str          # PBKDF2 of the plaintext token
+    prefix: str              # first 8 chars of the token for visual matching
+    created_at: datetime
+    expires_at: datetime | None = None
+    last_used_at: datetime | None = None
+    revoked_at: datetime | None = None
+
+
+class ApiTokenPublic(BaseModel):
+    """Token metadata for listings (never includes plaintext or hash)."""
+    id: str
+    name: str
+    workspace_id: str
+    prefix: str
+    created_at: datetime
+    expires_at: datetime | None = None
+    last_used_at: datetime | None = None
+    revoked_at: datetime | None = None
+
+
+class ApiTokenCreated(BaseModel):
+    """Returned ONCE when a token is minted — `token` is plaintext, store it now."""
+    token: str
+    record: ApiTokenPublic
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    display_name: str
+    workspace_name: str | None = None    # used on first-user bootstrap
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_in: int                      # seconds
+    user: UserPublic
+
+
+class InviteRequest(BaseModel):
+    email: str
+    role: Role = Role.member
+
+
+class TokenCreateRequest(BaseModel):
+    name: str
+    workspace_id: str
+    expires_in_days: int | None = None   # None == no expiry
+
+
 class Project(BaseModel):
     id: str
     workspace_id: str = "workspace-demo"

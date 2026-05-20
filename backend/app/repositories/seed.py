@@ -5,9 +5,21 @@ restart — if the demo project already exists, we leave the repo alone.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
+from app.models.schemas import Membership, Role, User
 from app.services import demo_store
 
 from . import Repos
+
+
+# Default demo credentials so the demo flow keeps working when auth is
+# enabled. Password lives in the seed data so anyone running the demo can
+# log in immediately; in real deployments the first /api/auth/register
+# call creates the founding owner with their own credentials.
+DEMO_OWNER_EMAIL = "owner@asura.local"
+DEMO_OWNER_PASSWORD = "asura"
+DEMO_OWNER_ID = "user-demo-owner"
 
 
 def seed_repos(repos: Repos) -> None:
@@ -41,3 +53,26 @@ def seed_repos(repos: Repos) -> None:
         items = getattr(demo_store, attr, None)
         if items:
             repo.add_many(items)
+
+    # Seed the demo owner so `login owner@asura.local / asura` works on a
+    # fresh checkout. Import inside the function to avoid a circular ref
+    # (security.auth imports from repositories transitively).
+    if repos.users.count() == 0:
+        from app.security.auth import hash_password
+
+        now = datetime.now(timezone.utc)
+        repos.users.add(User(
+            id=DEMO_OWNER_ID,
+            email=DEMO_OWNER_EMAIL,
+            display_name="Demo Owner",
+            password_hash=hash_password(DEMO_OWNER_PASSWORD),
+            is_active=True,
+            created_at=now,
+        ))
+        repos.memberships.add(Membership(
+            id="membership-demo-owner",
+            workspace_id=demo_store.WORKSPACE.id,
+            user_id=DEMO_OWNER_ID,
+            role=Role.owner,
+            created_at=now,
+        ))

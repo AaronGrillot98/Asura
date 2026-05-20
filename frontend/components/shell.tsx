@@ -23,6 +23,7 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GlobalSearch, GlobalSearchTrigger } from "@/components/global-search";
 import { BackendHealth } from "@/components/backend-health";
+import { UserPill } from "@/components/user-pill";
 
 type NavEntry = {
   href: string;
@@ -129,8 +130,11 @@ export function Shell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="sidebarFooter">
-          <BackendHealth />
-          <ThemeToggle />
+          <UserPill />
+          <div className="sidebarFooterRow">
+            <BackendHealth />
+            <ThemeToggle />
+          </div>
         </div>
       </aside>
       <main id="main" className="content">

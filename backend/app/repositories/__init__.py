@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from app.models.schemas import (
+    ApiToken,
     Asset,
     AttackPath,
     AuditLog,
@@ -30,6 +31,7 @@ from app.models.schemas import (
     AuthorizedScope,
     Evidence,
     Finding,
+    Membership,
     NucleiTemplate,
     Project,
     RemediationTask,
@@ -39,6 +41,7 @@ from app.models.schemas import (
     ScanSchedule,
     ScannerRun,
     Target,
+    User,
     Workspace,
 )
 
@@ -75,6 +78,12 @@ class Repos:
     # index (the source of truth is on disk via their own service layer).
     templates: InMemoryRepository[NucleiTemplate] = field(default_factory=lambda: InMemoryRepository[NucleiTemplate]())
     auth_profiles: InMemoryRepository[AuthProfile] = field(default_factory=lambda: InMemoryRepository[AuthProfile]())
+    # Auth state — always in-memory for now (a SQL-backed slice will mirror
+    # the existing pattern; for the demo flow + first auth pass in-memory
+    # is fine and means zero migration churn).
+    users: InMemoryRepository[User] = field(default_factory=lambda: InMemoryRepository[User]())
+    memberships: InMemoryRepository[Membership] = field(default_factory=lambda: InMemoryRepository[Membership]())
+    api_tokens: InMemoryRepository[ApiToken] = field(default_factory=lambda: InMemoryRepository[ApiToken]())
 
 
 def _build_sql_repos() -> Repos:
