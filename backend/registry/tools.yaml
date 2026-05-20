@@ -1435,18 +1435,23 @@ tools:
     execution: optional_pack
     modes: [active]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: GPL-3.0
     official_url: https://github.com/s0md3v/Arjun
-    executable: null
+    executable: arjun
+    install_hint: "Install with `pipx install arjun` or use `s0md3v/arjun:latest` via Docker."
+    docker_image: s0md3v/arjun:latest
     input_types: [url]
     output_formats: [json]
-    parser: null
+    parser: arjun_json
     safe_default: false
     requires_authorized_scope: true
     docker_available: true
     supported_os: [linux, macos, windows]
-    commands: []
+    target_kind: url
+    commands:
+      - mode: active
+        command: "arjun -u {{target}} -oJ /tmp/arjun.json -q"
     recommended_use: "HTTP parameter discovery for authorized web endpoints."
     risk_warning: "Generates many requests; scope carefully."
     risk_level: medium
@@ -1483,18 +1488,23 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: MIT
     official_url: https://github.com/GerbenJavado/LinkFinder
-    executable: null
+    executable: linkfinder
+    install_hint: "`pip install linkfinder` or run `python linkfinder.py` from the cloned repo."
+    docker_image: null
     input_types: [url, file]
-    output_formats: [html, json]
-    parser: null
+    output_formats: [html, json, text]
+    parser: linkfinder_text
     safe_default: true
     requires_authorized_scope: false
     docker_available: false
     supported_os: [linux, macos, windows]
-    commands: []
+    target_kind: url
+    commands:
+      - mode: passive
+        command: "linkfinder -i {{target}} -o cli"
     recommended_use: "Extract endpoints from JavaScript files for further triage."
     risk_warning: null
     risk_level: low
@@ -1507,18 +1517,23 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: MIT
     official_url: https://github.com/m4ll0k/SecretFinder
-    executable: null
+    executable: secretfinder
+    install_hint: "Clone https://github.com/m4ll0k/SecretFinder and expose `SecretFinder.py` as `secretfinder` on PATH."
+    docker_image: null
     input_types: [url, file]
     output_formats: [html, text]
-    parser: null
+    parser: secretfinder_text
     safe_default: true
     requires_authorized_scope: false
     docker_available: false
     supported_os: [linux, macos]
-    commands: []
+    target_kind: url
+    commands:
+      - mode: passive
+        command: "secretfinder -i {{target}} -o cli"
     recommended_use: "Find embedded secrets in JS files via regex heuristics."
     risk_warning: null
     risk_level: low
@@ -1632,18 +1647,23 @@ tools:
     execution: optional_pack
     modes: [active]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: Apache-2.0
     official_url: https://github.com/assetnote/kiterunner
-    executable: null
+    executable: kr
+    install_hint: "Install Kiterunner releases or use `assetnote/kiterunner:latest` via Docker."
+    docker_image: assetnote/kiterunner:latest
     input_types: [url, host]
     output_formats: [text]
-    parser: null
+    parser: kiterunner_text
     safe_default: false
     requires_authorized_scope: true
     docker_available: true
     supported_os: [linux, macos]
-    commands: []
+    target_kind: url
+    commands:
+      - mode: active
+        command: "kr scan {{target}} -w {{wordlist}} --fail-status-codes 404,400"
     recommended_use: "API endpoint discovery using API-aware wordlists."
     risk_warning: "High-noise scanner; confirm before running."
     risk_level: medium
@@ -1732,18 +1752,23 @@ tools:
     execution: optional_pack
     modes: [passive]
     install_status: not_installed
-    integration_status: planned
+    integration_status: runner
     license: MIT
     official_url: https://github.com/dolevf/graphql-cop
-    executable: null
+    executable: graphql-cop
+    install_hint: "Install with `pipx install graphql-cop`."
+    docker_image: null
     input_types: [url]
     output_formats: [json]
-    parser: null
+    parser: graphql_cop_json
     safe_default: true
     requires_authorized_scope: false
     docker_available: false
     supported_os: [linux, macos]
-    commands: []
+    target_kind: url
+    commands:
+      - mode: passive
+        command: "graphql-cop -t {{target}} -o json"
     recommended_use: "Detect common GraphQL misconfigurations."
     risk_warning: null
     risk_level: low
