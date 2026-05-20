@@ -46,12 +46,13 @@ def test_planned_catalog_additions_have_no_runnable_commands() -> None:
     #   - detect-secrets, kics, terrascan (slice 24: secrets + IaC pack;
     #     dalfox + yara were already commanded entries that just had their
     #     integration_status flipped, so they were never tracked here)
+    #   - arjun, linkfinder, secretfinder, graphql-cop, kiterunner
+    #     (slice 25: web/API deep recon pack)
     # Anything still in this set is intentionally not yet runnable.
     catalog_only_additions = {
-        "arjun",
-        "kxss", "linkfinder", "secretfinder", "corsy", "crlfuzz",
-        "openredirex", "kiterunner", "graphql-voyager", "inql",
-        "graphql-cop", "restler", "postman-importer", "openapi-parser",
+        "kxss", "corsy", "crlfuzz",
+        "openredirex", "graphql-voyager", "inql",
+        "restler", "postman-importer", "openapi-parser",
         "whispers", "detect-secrets-baseline",
         "tfsec-compatible", "cloudsplaining", "scoutsuite",
         "steampipe", "parliament", "cfn-nag",

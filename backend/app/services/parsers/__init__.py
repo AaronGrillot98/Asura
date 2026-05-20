@@ -13,6 +13,7 @@ from typing import Callable
 from app.models.schemas import Finding
 
 from . import (  # noqa: F401  re-export the parser modules
+    arjun,
     bandit,
     bearer,
     brakeman,
@@ -30,13 +31,16 @@ from . import (  # noqa: F401  re-export the parser modules
     gobuster,
     gosec,
     govulncheck,
+    graphql_cop,
     grype,
     httpx,
     jwt_tool,
     kics,
+    kiterunner,
     kube_bench,
     kube_score,
     kubescape,
+    linkfinder,
     naabu,
     nikto,
     nmap,
@@ -49,6 +53,7 @@ from . import (  # noqa: F401  re-export the parser modules
     retirejs,
     sarif,
     schemathesis,
+    secretfinder,
     semgrep,
     subfinder,
     syft,
@@ -182,6 +187,17 @@ PARSERS: dict[str, ParserFn] = {
     "terrascan_json": terrascan.parse,
     "yara": yara.parse,
     "yara_text": yara.parse,
+    # slice 25: web/API deep recon
+    "arjun": arjun.parse,
+    "arjun_json": arjun.parse,
+    "linkfinder": linkfinder.parse,
+    "linkfinder_text": linkfinder.parse,
+    "secretfinder": secretfinder.parse,
+    "secretfinder_text": secretfinder.parse,
+    "graphql-cop": graphql_cop.parse,
+    "graphql_cop_json": graphql_cop.parse,
+    "kiterunner": kiterunner.parse,
+    "kiterunner_text": kiterunner.parse,
     # generic
     "sarif": sarif.parse,
 }
