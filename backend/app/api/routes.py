@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, Response, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile
 
 from app.models.schemas import (
     ArsenalSummary,
@@ -37,6 +37,7 @@ from app.models.schemas import (
     HarImportSummary,
     LLMSettings,
     LLMSettingsUpdate,
+    SarifImportSummary,
     ScanJob,
     ScanRequest,
     ScannerRun,
@@ -57,6 +58,8 @@ from app.services.templates_service import TemplateValidationError, TemplatesSer
 from app.services import zap_auth
 from app.services.auth_profile_service import AuthProfileService
 from app.services.har_import import HarParseError, ingest_har, parse_har_bytes
+from app.services.sarif import SarifParseError, findings_to_sarif, sarif_to_findings
+from app.services.fingerprint import finding_fingerprint
 from app.services.llm_settings_service import LLMSettingsService
 from app.security.blocked_capabilities import as_dicts as blocked_capabilities_dicts
 from app.security.scope_guard import decide_scope, validate_scan_scope
@@ -291,6 +294,113 @@ def add_project_target(project_id: str, request: TargetCreate) -> Target:
     )
     repos.targets.add(target)
     return target
+
+
+@router.get("/projects/{project_id}/findings.sarif")
+def export_findings_sarif(project_id: str) -> Response:
+    """Export project findings as a SARIF 2.1.0 document.
+
+    Single GET, no auth gymnastics — pipe straight into GitHub Code Scanning,
+    SonarQube, DefectDojo, or any other SARIF-aware sink.
+
+        curl http://asura/api/projects/<id>/findings.sarif > asura.sarif
+    """
+    import json
+    repos = get_repos()
+    project = repos.projects.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    findings = [f for f in repos.findings.list() if f.project_id == project_id]
+    doc = findings_to_sarif(findings)
+    return Response(
+        content=json.dumps(doc, indent=2, default=str),
+        media_type="application/sarif+json",
+        headers={"Content-Disposition": f'attachment; filename="{project_id}.sarif"'},
+    )
+
+
+@router.post("/projects/{project_id}/imports/sarif", response_model=SarifImportSummary)
+async def import_sarif(
+    project_id: str,
+    request: Request,
+    file: UploadFile | None = File(default=None),
+) -> SarifImportSummary:
+    """Ingest a SARIF 2.1.0 document.
+
+    Accepts either a JSON body (`Content-Type: application/sarif+json` or
+    `application/json`) or a multipart upload. Findings are deduped by the
+    standard ASURA fingerprint so re-uploading the same CI artifact bumps
+    `last_seen` instead of creating duplicates.
+
+        # one-shot CI ingest
+        curl -X POST http://asura/api/projects/<id>/imports/sarif \\
+             -H 'Content-Type: application/sarif+json' \\
+             --data-binary @semgrep.sarif
+    """
+    import json
+    repos = get_repos()
+    project = repos.projects.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if file is not None:
+        blob = await file.read()
+    else:
+        blob = await request.body()
+    if not blob:
+        raise HTTPException(status_code=400, detail="Empty SARIF body.")
+    if len(blob) > 32 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="SARIF upload exceeds 32 MiB.")
+    try:
+        doc = json.loads(blob)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {exc}") from exc
+
+    try:
+        parsed = sarif_to_findings(doc, project_id=project_id)
+    except SarifParseError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Index by fingerprint, computing on the fly when an existing record
+    # doesn't carry one (e.g. seeded demo findings). Without this, a round
+    # trip would duplicate the demo set instead of bumping last_seen.
+    existing_by_fp: dict[str, "Finding"] = {}
+    for f in repos.findings.list():
+        if f.project_id != project_id:
+            continue
+        fp = f.fingerprint_hash or finding_fingerprint(f)
+        existing_by_fp[fp] = f
+
+    created = 0
+    updated = 0
+    drivers: set[str] = set()
+    for finding in parsed:
+        drivers.add(finding.scanner)
+        fp = finding.fingerprint_hash or finding_fingerprint(finding)
+        finding.fingerprint_hash = fp
+        if fp in existing_by_fp:
+            existing = existing_by_fp[fp]
+            existing.last_seen = datetime.now(timezone.utc)
+            repos.findings.update(existing)
+            updated += 1
+            continue
+        # Back-fill evidence.finding_id now that the Finding has its real id.
+        for ev in finding.evidence:
+            ev.finding_id = finding.id
+        repos.findings.add(finding)
+        for ev in finding.evidence:
+            repos.evidence.add(ev)
+        created += 1
+
+    return SarifImportSummary(
+        project_id=project_id,
+        runs_processed=len(doc.get("runs") or []),
+        results_processed=len(parsed),
+        findings_created=created,
+        findings_updated=updated,
+        tool_drivers=sorted(drivers),
+        skipped=[],
+    )
 
 
 @router.post("/projects/{project_id}/imports/har", response_model=HarImportSummary)

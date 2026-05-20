@@ -11,6 +11,7 @@ import {
   Code2,
   CheckCircle2,
   Download,
+  FileJson,
   GitBranch,
   Globe,
   KeyRound,
@@ -25,7 +26,7 @@ import {
 import type { ReactNode } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ArsenalSummary, DashboardSummary, Finding, ScannerRun, Severity } from "@/lib/api";
-import { reportUrl } from "@/lib/api";
+import { reportUrl, sarifUrl } from "@/lib/api";
 import { relativeTime } from "@/lib/time";
 import { RunScanForm } from "@/components/run-scan-form";
 import {
@@ -155,6 +156,14 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
           <a className="button ghost" href={reportUrl(data.project.id)}>
             <Download size={14} />
             Export report
+          </a>
+          <a
+            className="button ghost"
+            href={sarifUrl(data.project.id)}
+            title="SARIF 2.1.0 — pipe straight into GitHub Code Scanning or any CI sink"
+          >
+            <FileJson size={14} />
+            Export SARIF
           </a>
         </div>
       </header>

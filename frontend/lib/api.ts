@@ -612,6 +612,33 @@ export function jsonReportUrl(projectId: string) {
   return `${API_URL}/api/reports/${projectId}/json`;
 }
 
+export function sarifUrl(projectId: string) {
+  return `${API_URL}/api/projects/${projectId}/findings.sarif`;
+}
+
+export type SarifImportSummary = {
+  project_id: string;
+  runs_processed: number;
+  results_processed: number;
+  findings_created: number;
+  findings_updated: number;
+  tool_drivers: string[];
+  skipped: string[];
+};
+
+export async function importSarif(projectId: string, body: Blob | string): Promise<SarifImportSummary> {
+  const response = await fetch(`${API_URL}/api/projects/${projectId}/imports/sarif`, {
+    method: "POST",
+    headers: { "Content-Type": "application/sarif+json" },
+    body,
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `POST returned ${response.status}`);
+  }
+  return response.json();
+}
+
 // ---- Jobs + pipelines (Round A) ----
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "blocked" | "partial";

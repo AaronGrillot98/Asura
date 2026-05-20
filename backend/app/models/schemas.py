@@ -757,6 +757,23 @@ class HarEndpoint(BaseModel):
     seen_count: int = 1
 
 
+class SarifImportSummary(BaseModel):
+    """Result of `POST /api/projects/{id}/imports/sarif`.
+
+    Counts at the top so CI consumers can fail/succeed at a glance, then
+    the per-run driver list. `skipped` collects human-readable reasons
+    (unparseable result, malformed level, etc.) — never raised as an
+    error so a partial batch still imports cleanly.
+    """
+    project_id: str
+    runs_processed: int
+    results_processed: int
+    findings_created: int
+    findings_updated: int
+    tool_drivers: list[str] = Field(default_factory=list)
+    skipped: list[str] = Field(default_factory=list)
+
+
 class HarImportSummary(BaseModel):
     """Result of `POST /api/projects/{id}/imports/har`.
 
