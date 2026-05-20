@@ -5,7 +5,7 @@
 # Asura
 
 **Self-hosted security command center for authorized testing.**
-Orchestrates 52 real scanners. Preserves evidence. Correlates attack paths. Refuses to pretend a scan happened.
+Orchestrates 57 real scanners. Preserves evidence. Correlates attack paths. Refuses to pretend a scan happened.
 
 [![CI](https://github.com/AaronGrillot98/Asura/actions/workflows/ci.yml/badge.svg)](https://github.com/AaronGrillot98/Asura/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
@@ -13,7 +13,7 @@ Orchestrates 52 real scanners. Preserves evidence. Correlates attack paths. Refu
 [![Backend tests](https://img.shields.io/badge/backend%20tests-274%20passing-brightgreen.svg)](backend/tests)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
-[![Tools](https://img.shields.io/badge/wired%20scanners-52%20of%2094-purple.svg)](#wired-scanners)
+[![Tools](https://img.shields.io/badge/wired%20scanners-57%20of%2094-purple.svg)](#wired-scanners)
 [![Persistence](https://img.shields.io/badge/persistence-SQLite%20%7C%20Postgres-gold.svg)](#persistence)
 
 </div>
@@ -48,7 +48,7 @@ Orchestrates 52 real scanners. Preserves evidence. Correlates attack paths. Refu
 
 ## What it does
 
-- **Runs real scanners** — 52 are wired end-to-end today across core engines, AppSec language packs, recon, fuzzers, K8s/cloud, API testing, and SARIF importers. The other ~42 are registered in the catalog with truthful state (`planned` / `reference` / `analyzer` / `importer` / `blocked`).
+- **Runs real scanners** — 57 are wired end-to-end today across core engines, AppSec language packs, recon, fuzzers, K8s/cloud, IaC, API testing, secret scanning, XSS validation, YARA detection, and SARIF importers. The other ~37 are registered in the catalog with truthful state (`planned` / `reference` / `analyzer` / `importer` / `blocked`).
 - **Zero local install needed** — most wired tools ship with canonical Docker images. If a binary isn't on PATH, Asura runs `docker run --rm <image>` automatically. Set `ASURA_PREFER_DOCKER=1` to always prefer the container path.
 - **Background jobs + pipelines** — `POST /api/scans/async` returns immediately with a job id; poll `/api/jobs/{id}` for progress. Three preset pipelines (`passive-recon`, `code-audit`, `container-audit`) chain multiple scanners with optional asset-passing between stages.
 - **Evidence-first** — every finding carries at least one `Evidence` record with a sha256 content hash and the exact argv used. Raw payloads land at `evidence/<workspace>/<project>/<scan_id>/<tool>.json` and are never overwritten.
@@ -181,13 +181,17 @@ Press **`/`** anywhere to open the global search palette (also `Ctrl/Cmd+K`). Se
 | Recon — dedicated (3) | subfinder · httpx · naabu |
 | Recon — shared discovery (12) | amass · dnsx · katana · gau · waybackurls · hakrawler · webanalyze · whatweb · wafw00f · tlsx · shuffledns · assetfinder |
 | Web fuzzers + DAST (7) | ffuf · gobuster · dirsearch · sqlmap · feroxbuster · nikto · wapiti |
+| Web XSS validation (1) | dalfox |
 | Dependency / SCA (1) | retirejs |
 | API testing (2) | schemathesis · jwt-tool |
 | K8s / cloud (5) | kube-bench · kube-score · kubescape · prowler · polaris |
 | Container benchmark (1) | docker-bench-security |
+| IaC (2) | kics · terrascan |
+| Secrets (extra) (1) | detect-secrets |
+| Detection engineering (1) | yara |
 | Importers (1) | SARIF (CodeQL + any SARIF-emitting tool) |
 
-**52 wired, 94 in the catalog.** The remaining ~42 are visible under `/arsenal` with truthful state (`planned` / `reference` / `analyzer` / `importer` / `blocked`) — intentionally not runnable until their parsers land.
+**57 wired, 94 in the catalog.** The remaining ~37 are visible under `/arsenal` with truthful state (`planned` / `reference` / `analyzer` / `importer` / `blocked`) — intentionally not runnable until their parsers land.
 
 ## Safety model
 
@@ -298,6 +302,7 @@ the create_all-vs-Alembic parity contract.
 | 21 | **SARIF 2.1.0 import + export** — one-POST CI integration ([docs](docs/SARIF.md)) |
 | 22 | **Multi-user workspaces + JWT auth + service tokens** — Asura's own access control ([docs](docs/AUTH.md)) |
 | 23 | **Signed PDF reports + Merkle-rooted evidence proofs** ([docs](docs/REPORTS.md)) |
+| 24 | **+5 wired scanners** — dalfox (XSS), detect-secrets, kics + terrascan (IaC), yara (detection). 57 of 94 now runner-ready. |
 
 ## Roadmap
 
