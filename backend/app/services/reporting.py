@@ -8,6 +8,7 @@ suitable for handing to a stakeholder.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from io import BytesIO
 from typing import Any
 from uuid import uuid4
 
@@ -23,6 +24,8 @@ from app.models.schemas import (
 )
 from app.services.evidence_store import content_hash
 from app.services.pentest_brain import PentestBrain
+from app.services.merkle import build_tree, step_to_dict
+from app.services.signing import canonical_json, hash_sections, sign_report_bundle
 
 _TOOL_PARSER_HINT = {
     "nmap": "nmap_xml", "nuclei": "nuclei_json", "semgrep": "semgrep_json",
@@ -276,3 +279,220 @@ def render_markdown(report: Report) -> str:
         lines.append(f"- `{ev['id']}` finding=`{ev['finding_id']}` hash=`{ev['content_hash']}`")
     lines.extend(["", "## Safety Statement", "", s["safety_statement"], ""])
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Merkle tree of evidence + signed bundle
+# ---------------------------------------------------------------------------
+
+def _evidence_leaves(sections: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the ordered evidence leaf list used as the Merkle source."""
+    leaves: list[dict[str, Any]] = []
+    for ev in sections.get("evidence", []):
+        # Fall back to a deterministic hash of the metadata if the
+        # evidence record never persisted a content_hash (which is true
+        # for the seeded demo set).
+        h = ev.get("content_hash") or canonical_json({
+            "id": ev.get("id"),
+            "finding_id": ev.get("finding_id"),
+            "scanner": ev.get("scanner"),
+            "file_path": ev.get("file_path"),
+        }).hex()
+        leaves.append({
+            "evidence_id": ev.get("id"),
+            "finding_id": ev.get("finding_id"),
+            "scanner": ev.get("scanner"),
+            "leaf_hash": h.removeprefix("sha256:") if isinstance(h, str) else h,
+        })
+    return leaves
+
+
+def build_signed_bundle(report: Report) -> dict[str, Any]:
+    """Build the signed bundle for a Report.
+
+    The bundle contains the full sections payload, a Merkle root over
+    every evidence record, the per-leaf inclusion proof, and an Ed25519
+    signature over the bundle's integrity-bearing header. A verifier
+    only needs the public key (served at /api/reports/signing-key) plus
+    the trusted root to check any single evidence record without
+    receiving the rest of the report.
+    """
+    sections = report.sections
+    leaves = _evidence_leaves(sections)
+    tree = build_tree([leaf["leaf_hash"] for leaf in leaves])
+
+    proofs: list[dict[str, Any]] = []
+    for idx, leaf in enumerate(leaves):
+        steps = [step_to_dict(s) for s in tree.inclusion_proof(idx)] if leaves else []
+        proofs.append({**leaf, "leaf_index": idx, "proof": steps})
+
+    sections_hash = hash_sections(sections)
+    envelope = sign_report_bundle(
+        report_id=report.id,
+        generated_at=report.generated_at,
+        content_hash=sections_hash,
+        merkle_root=f"sha256:{tree.root_hex}",
+        sections=sections,
+    )
+    envelope["title"] = report.title
+    envelope["project_id"] = report.project_id
+    envelope["evidence_leaves"] = proofs
+    envelope["evidence_count"] = len(leaves)
+    return envelope
+
+
+# ---------------------------------------------------------------------------
+# PDF rendering
+# ---------------------------------------------------------------------------
+
+def render_pdf(report: Report) -> bytes:
+    """Render the Report as a PDF using fpdf2 (pure-Python, no system deps).
+
+    The layout intentionally mirrors `render_markdown` section ordering
+    so a reader who's seen the markdown version isn't disoriented. A
+    signed footer at the end carries the Ed25519 signature + key id +
+    Merkle root so the printed page is itself a verifiable artifact.
+    """
+    # Imported lazily so the rest of reporting.py stays importable even
+    # if fpdf2 isn't installed (e.g. a slim test profile).
+    from fpdf import FPDF
+
+    bundle = build_signed_bundle(report)
+    s = report.sections
+
+    pdf = FPDF(unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_margins(left=18, top=18, right=18)
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 18)
+    _safe_cell(pdf, report.title, h=10, ln=True)
+
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(110, 110, 110)
+    _safe_cell(pdf, f"Generated {report.generated_at.isoformat()}", h=5, ln=True)
+    if report.is_demo_data:
+        pdf.set_text_color(180, 60, 60)
+        _safe_cell(pdf, "DEMO DATA — findings are seeded, not from a live scan.", h=5, ln=True)
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(4)
+
+    _pdf_heading(pdf, "Engagement Summary")
+    _pdf_paragraph(pdf, s["engagement_summary"]["description"])
+    _pdf_paragraph(pdf, f"Project risk score: {s['engagement_summary']['risk_score']}/100")
+
+    _pdf_heading(pdf, "Scope")
+    _pdf_paragraph(pdf, s["scope_statement"])
+
+    _pdf_heading(pdf, "Authorization Statement")
+    _pdf_paragraph(pdf, s["authorization_statement"])
+
+    _pdf_heading(pdf, "Executive Summary")
+    _pdf_paragraph(pdf, s["executive_summary"])
+
+    _pdf_heading(pdf, "Risk Overview")
+    for sev, count in s["risk_overview"].items():
+        _pdf_paragraph(pdf, f"• {sev.upper()}: {count}", indent=4)
+
+    _pdf_heading(pdf, "Top Findings")
+    for sev_label, items in s["findings_by_severity"].items():
+        if not items:
+            continue
+        pdf.set_font("Helvetica", "B", 10)
+        _safe_cell(pdf, sev_label.upper(), h=6, ln=True)
+        pdf.set_font("Helvetica", "", 9)
+        for item in items[:25]:
+            _pdf_paragraph(pdf, f"• {item['title']}  —  scanner: {item['scanner']}", indent=4)
+        pdf.ln(1)
+
+    _pdf_heading(pdf, "Attack Paths")
+    if s["attack_paths"]:
+        for path in s["attack_paths"][:10]:
+            pdf.set_font("Helvetica", "B", 11)
+            _safe_cell(pdf, path.get("title", "(untitled)"), h=6, ln=True)
+            pdf.set_font("Helvetica", "", 9)
+            _pdf_paragraph(pdf, path.get("narrative") or path.get("summary") or "")
+            _pdf_paragraph(pdf, f"Status: {path.get('status', 'hypothesis')}  ·  Confidence: {path.get('confidence')}")
+    else:
+        _pdf_paragraph(pdf, "No attack-path hypotheses produced for this engagement.")
+
+    _pdf_heading(pdf, "Remediation Roadmap")
+    for task in s["remediation_roadmap"][:20]:
+        _pdf_paragraph(pdf, f"[{task['priority'].upper()}] {task['title']}", indent=4)
+
+    _pdf_heading(pdf, "Evidence References")
+    pdf.set_font("Helvetica", "", 8)
+    for ev in s["evidence"][:60]:
+        _pdf_paragraph(
+            pdf,
+            f"{ev['id']}  ·  {ev['scanner']}  ·  hash={ev['content_hash'] or '(none)'}",
+            indent=2,
+        )
+
+    _pdf_heading(pdf, "Safety Statement")
+    _pdf_paragraph(pdf, s["safety_statement"])
+
+    _pdf_heading(pdf, "Cryptographic Footer")
+    pdf.set_font("Courier", "", 7.5)
+    pdf.set_text_color(60, 60, 60)
+    _safe_cell(pdf, f"signing_key_id : {bundle['signing_key_id']}", h=4, ln=True)
+    _safe_cell(pdf, f"algorithm      : {bundle['algorithm']}", h=4, ln=True)
+    _safe_cell(pdf, f"content_hash   : {bundle['content_hash']}", h=4, ln=True)
+    _safe_cell(pdf, f"merkle_root    : {bundle['merkle_root']}", h=4, ln=True)
+    _safe_cell(pdf, f"evidence_count : {bundle['evidence_count']}", h=4, ln=True)
+    _safe_cell(pdf, "signature (base64, 88 chars):", h=4, ln=True)
+    sig = bundle["signature"]
+    # Split the signature so it fits inside the printable area.
+    for chunk_start in range(0, len(sig), 64):
+        _safe_cell(pdf, sig[chunk_start:chunk_start + 64], h=4, ln=True)
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(1)
+    pdf.set_font("Helvetica", "I", 7.5)
+    _safe_cell(
+        pdf,
+        "Verify: fetch the Ed25519 public key from /api/reports/signing-key and "
+        "the signed JSON bundle from /api/reports/{project_id}/signed.json, "
+        "then check signature over the canonicalized {report_id, generated_at, "
+        "content_hash, merkle_root}.",
+        h=4, ln=True,
+    )
+
+    out_io = BytesIO()
+    pdf.output(out_io)
+    return out_io.getvalue()
+
+
+def _pdf_heading(pdf: "FPDF", title: str) -> None:  # type: ignore[name-defined]
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(40, 60, 110)
+    _safe_cell(pdf, title, h=7, ln=True)
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Helvetica", "", 10)
+
+
+def _pdf_paragraph(pdf: "FPDF", body: str, *, indent: int = 0) -> None:  # type: ignore[name-defined]
+    if not body:
+        return
+    safe = _ascii_safe(body)
+    # Always reset to a known X then pass an explicit width. Without
+    # this, a previous `set_x` from another helper can leave the cursor
+    # near the right margin and `multi_cell(0, …)` computes a zero/
+    # negative wrap width and raises "Not enough horizontal space".
+    pdf.set_x(pdf.l_margin + indent)
+    width = max(20.0, pdf.epw - indent)
+    pdf.multi_cell(w=width, h=4.5, text=safe)
+
+
+def _safe_cell(pdf: "FPDF", text: str, *, h: float, ln: bool) -> None:  # type: ignore[name-defined]
+    pdf.cell(0, h=h, text=_ascii_safe(text), new_x="LMARGIN" if ln else "RIGHT", new_y="NEXT" if ln else "TOP")
+
+
+def _ascii_safe(text: str) -> str:
+    """fpdf2's core fonts (Helvetica/Courier) only carry latin-1 glyphs.
+
+    Strip anything outside that range so we never crash on, e.g.,
+    em-dashes or curly quotes that came from the markdown source.
+    """
+    if not isinstance(text, str):
+        text = str(text)
+    return text.encode("latin-1", errors="replace").decode("latin-1")

@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Download,
   FileJson,
+  FileText,
   GitBranch,
   Globe,
   KeyRound,
@@ -26,7 +27,7 @@ import {
 import type { ReactNode } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ArsenalSummary, DashboardSummary, Finding, ScannerRun, Severity } from "@/lib/api";
-import { reportUrl, sarifUrl } from "@/lib/api";
+import { reportUrl, sarifUrl, pdfReportUrl } from "@/lib/api";
 import { relativeTime } from "@/lib/time";
 import { RunScanForm } from "@/components/run-scan-form";
 import {
@@ -155,7 +156,15 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
           <RunScanForm projectId={data.project.id} />
           <a className="button ghost" href={reportUrl(data.project.id)}>
             <Download size={14} />
-            Export report
+            Markdown
+          </a>
+          <a
+            className="button ghost"
+            href={pdfReportUrl(data.project.id)}
+            title="Ed25519-signed PDF with Merkle-rooted evidence references"
+          >
+            <FileText size={14} />
+            Signed PDF
           </a>
           <a
             className="button ghost"
@@ -163,7 +172,7 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
             title="SARIF 2.1.0 — pipe straight into GitHub Code Scanning or any CI sink"
           >
             <FileJson size={14} />
-            Export SARIF
+            SARIF
           </a>
         </div>
       </header>

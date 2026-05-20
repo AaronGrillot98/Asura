@@ -12,6 +12,7 @@ from typing import Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile
+from pydantic import BaseModel
 
 from app.models.schemas import (
     ArsenalSummary,
@@ -65,7 +66,9 @@ from app.security.blocked_capabilities import as_dicts as blocked_capabilities_d
 from app.security.scope_guard import decide_scope, validate_scan_scope
 from app.services.demo_store import RISK_TREND
 from app.services.pentest_brain import PentestBrain
-from app.services.reporting import build_report, render_markdown
+from app.services.reporting import build_report, build_signed_bundle, render_markdown, render_pdf
+from app.services.merkle import verify_inclusion
+from app.services.signing import public_key_pem, signing_key_id
 from app.services.runner import run_scanner
 from app.services.scanner_registry import CORE_SCANNERS, SCANNERS
 from app.services.tool_registry import load_contract_report, query_arsenal
@@ -1170,6 +1173,44 @@ def start_scan(request: ScanRequest) -> list[ScannerRun]:
             zap_auth.delete_hook_file(path)
 
 
+class VerifyEvidenceRequest(BaseModel):
+    leaf_hash: str
+    proof: list[dict]
+    merkle_root: str
+
+
+@router.get("/reports/signing-key")
+def reports_signing_key() -> dict[str, str]:
+    """Return the Ed25519 public key used to sign every report.
+
+    Stable per deployment; rotating the on-disk key file changes the
+    returned `key_id`. Out-of-band publish this once (status page, docs)
+    so verifiers can pin a known key.
+    """
+    return {
+        "key_id": signing_key_id(),
+        "algorithm": "ed25519",
+        "public_key_pem": public_key_pem(),
+    }
+
+
+@router.post("/reports/verify-evidence")
+def verify_evidence_inclusion(req: VerifyEvidenceRequest) -> dict[str, bool | str]:
+    """Stateless verifier: check that a leaf belongs to a signed Merkle root.
+
+    The caller only needs the leaf hash, the audit path, and the trusted
+    root (usually pulled from a previously signed bundle). No state is
+    held server-side — it's a pure recomputation. Convenience endpoint
+    for CI tooling without a SHA-256 implementation handy.
+    """
+    ok = verify_inclusion(
+        leaf=req.leaf_hash.removeprefix("sha256:"),
+        proof=req.proof,
+        expected_root=req.merkle_root.removeprefix("sha256:"),
+    )
+    return {"valid": ok, "merkle_root": req.merkle_root}
+
+
 @router.post("/reports/{project_id}", response_model=Report)
 def generate_report(project_id: str, request: ReportRequest) -> Report:
     repos = get_repos()
@@ -1200,3 +1241,48 @@ def markdown_report(project_id: str) -> Response:
         media_type="text/markdown",
         headers={"Content-Disposition": f"attachment; filename=asura-{uuid4()}.md"},
     )
+
+
+@router.get("/reports/{project_id}/pdf")
+def pdf_report(project_id: str) -> Response:
+    """Render the full report as a signed PDF.
+
+    The PDF carries the Ed25519 signature, key id, content hash, and
+    Merkle root in a "Cryptographic Footer" section — the printout is
+    itself a verifiable artifact when read alongside the public key
+    served at /api/reports/signing-key.
+    """
+    repos = get_repos()
+    if repos.projects.get(project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    report = build_report(repos=repos, project_id=project_id, kind="markdown")
+    body = render_pdf(report)
+    return Response(
+        body,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="asura-{project_id}.pdf"'},
+    )
+
+
+@router.get("/reports/{project_id}/signed.json")
+def signed_json_report(project_id: str) -> dict:
+    """Return the full report as a signed JSON envelope.
+
+    The envelope ships:
+      - `sections`: the report body (the same dict the JSON report returns)
+      - `content_hash`: sha256 over canonicalized `sections`
+      - `merkle_root`: root of the Merkle tree over evidence leaves
+      - `evidence_leaves`: ordered list with `leaf_index` + audit `proof`
+      - `signature`: Ed25519 signature (base64) over the canonical header
+      - `signing_key_id`, `algorithm`
+
+    Verifiers fetch /api/reports/signing-key once, then re-derive the
+    content hash + Merkle root from the bundle and check the signature.
+    """
+    repos = get_repos()
+    if repos.projects.get(project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    report = build_report(repos=repos, project_id=project_id, kind="json")
+    return build_signed_bundle(report)
+
+
