@@ -402,18 +402,18 @@ export function RunScanForm({
         ) : null}
 
         {status.kind === "error" ? (
-          <div className="banner danger">{status.message}</div>
+          <div role="alert" aria-live="assertive" className="banner danger">{status.message}</div>
         ) : null}
         {status.kind === "running" ? (
-          <div className="banner info">{status.message}</div>
+          <div role="status" aria-live="polite" className="banner info">{status.message}</div>
         ) : null}
         {status.kind === "ok" ? (
-          <div className="banner info" style={{ fontSize: 13 }}>
+          <div role="status" aria-live="polite" className="banner info" style={{ fontSize: 13 }}>
             Submitted {status.runs.length} run(s). {status.runs.map((r) => `${r.scanner}: ${r.status}`).join(" · ")}
           </div>
         ) : null}
         {status.kind === "queued" ? (
-          <div className="banner info" style={{ fontSize: 13 }}>
+          <div role="status" aria-live="polite" className="banner info" style={{ fontSize: 13 }}>
             Job <code className="inlineCode">{status.jobId}</code> queued. {" "}
             <a href={`/jobs/${status.jobId}`}>Track progress →</a>
           </div>

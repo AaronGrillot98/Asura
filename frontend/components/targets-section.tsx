@@ -85,7 +85,7 @@ export function TargetsSection({ projectId, initial }: { projectId: string; init
       </div>
 
       {error ? (
-        <div className="banner danger" style={{ marginBottom: "var(--space-3)" }}>{error}</div>
+        <div role="alert" aria-live="assertive" className="banner danger" style={{ marginBottom: "var(--space-3)" }}>{error}</div>
       ) : null}
 
       {open ? (

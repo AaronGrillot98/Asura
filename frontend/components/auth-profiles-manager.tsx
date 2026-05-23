@@ -108,7 +108,7 @@ export function AuthProfilesManager({ initial }: { initial: AuthProfile[] }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {error ? (
-        <div className="banner danger" style={{ fontSize: 13 }}>{error}</div>
+        <div role="alert" aria-live="assertive" className="banner danger" style={{ fontSize: 13 }}>{error}</div>
       ) : null}
 
       <section className="panel">

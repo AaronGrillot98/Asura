@@ -76,12 +76,12 @@ export function HarImportSection({ projectId }: { projectId: string }) {
       </div>
 
       {status.kind === "error" ? (
-        <div className="banner danger" style={{ marginTop: "var(--space-3)" }}>{status.message}</div>
+        <div role="alert" aria-live="assertive" className="banner danger" style={{ marginTop: "var(--space-3)" }}>{status.message}</div>
       ) : null}
 
       {status.kind === "ok" ? (
         <div style={{ marginTop: "var(--space-4)", display: "grid", gap: "var(--space-3)" }}>
-          <div className="banner info">
+          <div role="status" aria-live="polite" className="banner info">
             Processed <strong>{status.summary.entries_processed}</strong> request(s).{" "}
             <strong>{status.summary.new_targets.length}</strong> new target(s) created.{" "}
             <strong>{status.summary.endpoints.length}</strong> unique endpoint(s).

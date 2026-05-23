@@ -31,7 +31,7 @@ export function DeleteProjectButton({ projectId, projectName, disabled }: { proj
   return (
     <>
       {error ? (
-        <div className="banner danger" style={{ marginRight: 8 }}>{error}</div>
+        <div role="alert" aria-live="assertive" className="banner danger" style={{ marginRight: 8 }}>{error}</div>
       ) : null}
       <button
         type="button"

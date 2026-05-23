@@ -77,12 +77,12 @@ export function RunPipelineForm({
         I have explicit authorization to scan this target.
       </label>
       {status.kind === "error" ? (
-        <div className="banner danger" style={{ fontSize: 12 }}>
+        <div role="alert" aria-live="assertive" className="banner danger" style={{ fontSize: 12 }}>
           {status.message}
         </div>
       ) : null}
       {status.kind === "submitted" ? (
-        <div className="banner info" style={{ fontSize: 12 }}>
+        <div role="status" aria-live="polite" className="banner info" style={{ fontSize: 12 }}>
           Submitted {pipelineName} → job <code className="inlineCode">{status.jobId}</code>.{" "}
           <a href={`/jobs/${status.jobId}`}>Track progress →</a>
         </div>

@@ -136,7 +136,7 @@ export function Dashboard({ data, arsenal }: { data: DashboardSummary; arsenal: 
   return (
     <>
       {data.is_demo_data ? (
-        <div className="banner demo">
+        <div role="note" className="banner demo">
           <strong>Demo mode:</strong> findings on this dashboard are seeded
           demo evidence, not the result of a live scan. Set{" "}
           <code className="inlineCode">ASURA_DEMO_MODE=1</code> on the backend
