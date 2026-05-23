@@ -2208,3 +2208,68 @@ code {
     grid-template-columns: 1fr;
   }
 }
+
+/* =============================================================================
+ * A11y delta (slice 26 audit)
+ *
+ * Slice 20 added skipLink/.skeleton/focus-visible-on-form-controls; this block
+ * fills the gaps still open after that pass:
+ *
+ *   1. `prefers-reduced-motion` global override — disables transitions,
+ *      animations and smooth-scroll for users who opt out.
+ *
+ *   2. `forced-colors` fallback — under Windows High Contrast mode the
+ *      `--info` token is ignored; fall back to the system CanvasText
+ *      color so the focus ring stays visible.
+ *
+ *   3. `.srOnly` utility — screen-reader-only text, used as an
+ *      accessible-table fallback alongside recharts SVGs.
+ *
+ *   4. Cursor discipline — buttons and role="button" elements get a
+ *      pointer cursor; disabled controls get not-allowed.
+ * ============================================================================*/
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+summary {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .skeleton {
+    animation: none;
+    background: var(--bg-3);
+  }
+}

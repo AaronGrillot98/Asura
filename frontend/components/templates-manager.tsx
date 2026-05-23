@@ -157,7 +157,7 @@ export function TemplatesManager({ initial }: { initial: NucleiTemplate[] }) {
           </div>
         </div>
         {error ? (
-          <div className="banner danger" style={{ marginTop: 10, fontSize: 13 }}>
+          <div role="alert" aria-live="assertive" className="banner danger" style={{ marginTop: 10, fontSize: 13 }}>
             {error}
           </div>
         ) : null}

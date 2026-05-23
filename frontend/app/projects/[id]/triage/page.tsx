@@ -61,7 +61,7 @@ export default async function ProjectTriage({ params }: { params: Promise<{ id: 
       </header>
 
       {errorMessage ? (
-        <div className="banner danger">Could not load triage: {errorMessage}</div>
+        <div role="alert" aria-live="assertive" className="banner danger">Could not load triage: {errorMessage}</div>
       ) : !report ? (
         <div className="loadingState">
           <span className="spinner" />

@@ -176,3 +176,114 @@ def test_add_target_on_unknown_project_404() -> None:
         json={"kind": "url", "value": "https://x.example", "authorized": True},
     )
     assert response.status_code == 404
+
+
+def test_add_target_grants_scope_so_passive_scan_is_accepted() -> None:
+    """Regression: adding a target via POST /projects/{id}/targets must
+    also expand the project's scope. Without this, the scope guard
+    silently rejects every subsequent scan of the just-added target with
+    "target not in project scope," which made the UI's "Add Target" path
+    look broken from the user's perspective.
+    """
+    reset_repos()
+    # Start with empty scope_rules — the user adds scope by adding targets.
+    minimal_scope = {
+        "domains": [],
+        "urls": [],
+        "cidrs": [],
+        "repos": [],
+        "containers": [],
+        "blocked_targets": [],
+        "allow_active": True,
+        "allow_lab": False,
+        "max_requests_per_second": 2,
+        "timeout_seconds": 900,
+    }
+    created = client.post(
+        "/api/projects",
+        json=_payload("Scope Grant Test", scope_rules=minimal_scope),
+    ).json()
+    pid = created["id"]
+
+    # Add a domain target. Adding it must:
+    #   1. Create the Target record (already worked).
+    #   2. Append the value to project.targets (was broken).
+    #   3. Add the value to scope_rules.domains (was broken).
+    add = client.post(
+        f"/api/projects/{pid}/targets",
+        json={"kind": "domain", "value": "example.com", "authorized": True},
+    )
+    assert add.status_code == 201
+
+    project = client.get(f"/api/projects/{pid}").json()
+    assert "example.com" in project["targets"]
+    assert "example.com" in project["scope_rules"]["domains"]
+
+    # The whole point: a passive scan against the just-added target must
+    # now pass the scope guard. We use `subfinder` because it's passive-
+    # capable; the scan may still no-op in CI (no binary installed) but
+    # it must NOT be rejected with a scope error.
+    scan = client.post(
+        "/api/scans",
+        json={
+            "project_id": pid,
+            "target": "example.com",
+            "scanners": ["subfinder"],
+            "mode": "passive",
+        },
+    )
+    assert scan.status_code != 400, scan.text
+    runs = scan.json()
+    assert isinstance(runs, list) and runs, runs
+    for run in runs:
+        msg = (run.get("message") or "").lower()
+        assert "not listed in project scope" not in msg, run
+
+
+def test_add_url_target_grants_url_scope() -> None:
+    """Same regression as above but exercises the url→urls bucket so a
+    follow-up scan referencing the URL passes the scope guard.
+    """
+    reset_repos()
+    minimal_scope = {
+        "domains": [], "urls": [], "cidrs": [], "repos": [], "containers": [],
+        "blocked_targets": [], "allow_active": True, "allow_lab": False,
+        "max_requests_per_second": 2, "timeout_seconds": 900,
+    }
+    created = client.post(
+        "/api/projects",
+        json=_payload("Url Scope Test", scope_rules=minimal_scope),
+    ).json()
+    pid = created["id"]
+    add = client.post(
+        f"/api/projects/{pid}/targets",
+        json={"kind": "url", "value": "https://api.example.com/v1", "authorized": True},
+    )
+    assert add.status_code == 201
+    project = client.get(f"/api/projects/{pid}").json()
+    assert "https://api.example.com/v1" in project["scope_rules"]["urls"]
+    assert "https://api.example.com/v1" in project["targets"]
+
+
+def test_add_ip_target_grants_cidr_scope() -> None:
+    """A kind=ip target gets expanded to a /32 CIDR so the scope guard's
+    `ip_address in ip_network` check resolves cleanly.
+    """
+    reset_repos()
+    minimal_scope = {
+        "domains": [], "urls": [], "cidrs": [], "repos": [], "containers": [],
+        "blocked_targets": [], "allow_active": True, "allow_lab": False,
+        "max_requests_per_second": 2, "timeout_seconds": 900,
+    }
+    created = client.post(
+        "/api/projects",
+        json=_payload("Ip Scope Test", scope_rules=minimal_scope),
+    ).json()
+    pid = created["id"]
+    add = client.post(
+        f"/api/projects/{pid}/targets",
+        json={"kind": "ip", "value": "10.0.0.5", "authorized": True},
+    )
+    assert add.status_code == 201
+    project = client.get(f"/api/projects/{pid}").json()
+    assert "10.0.0.5/32" in project["scope_rules"]["cidrs"]

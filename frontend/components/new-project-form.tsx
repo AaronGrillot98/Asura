@@ -149,7 +149,7 @@ export function NewProjectForm() {
       </section>
 
       {status.kind === "error" ? (
-        <div className="banner danger">{status.message}</div>
+        <div role="alert" aria-live="assertive" className="banner danger">{status.message}</div>
       ) : null}
 
       <div>

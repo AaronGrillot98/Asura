@@ -21,7 +21,7 @@ async function safeFetch<T>(fn: () => Promise<T>): Promise<FetchResult<T>> {
 
 function SectionError({ section, message }: { section: string; message: string }) {
   return (
-    <div className="banner danger" style={{ marginTop: 12 }}>
+    <div role="alert" aria-live="assertive" className="banner danger" style={{ marginTop: 12 }}>
       <strong>{section} could not load.</strong> {message} Restart the backend
       with the latest code and refresh the page. The rest of this view stayed
       online.

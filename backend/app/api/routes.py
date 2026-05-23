@@ -277,17 +277,60 @@ def project_targets(project_id: str) -> list[Target]:
     return [t for t in get_repos().targets.list() if t.project_id == project_id]
 
 
+def _grant_scope_for_target(project: Project, kind: str, value: str) -> Project:
+    """Return an updated `Project` whose `targets` list and `scope_rules`
+    include the just-added target so the scope guard accepts scans of it.
+
+    Without this, calling `POST /projects/{id}/targets` would silently
+    leave the new target out-of-scope — the scope guard checks
+    `project.targets` (list[str]) and `project.scope_rules.*` collections,
+    neither of which the Target table touches on its own.
+    """
+    targets = list(project.targets)
+    if value not in targets:
+        targets.append(value)
+    rules_dict = project.scope_rules.model_dump()
+    bucket_by_kind = {
+        "url": "urls",
+        "domain": "domains",
+        "host": "domains",
+        "cidr": "cidrs",
+        "repo": "repos",
+        "container": "containers",
+    }
+    bucket = bucket_by_kind.get(kind)
+    if bucket is not None:
+        existing = list(rules_dict.get(bucket) or [])
+        if value not in existing:
+            existing.append(value)
+        rules_dict[bucket] = existing
+    elif kind == "ip":
+        # Treat a bare IP as a /32 CIDR so the scope guard's
+        # `ip_address in ip_network` check picks it up.
+        cidr = f"{value}/32"
+        existing = list(rules_dict.get("cidrs") or [])
+        if cidr not in existing:
+            existing.append(cidr)
+        rules_dict["cidrs"] = existing
+    # `api_spec` carries no scope semantics today; the target is recorded
+    # for inventory only.
+    return project.model_copy(
+        update={"targets": targets, "scope_rules": ScopeRules.model_validate(rules_dict)}
+    )
+
+
 @router.post("/projects/{project_id}/targets", response_model=Target, status_code=201)
 def add_project_target(project_id: str, request: TargetCreate) -> Target:
     repos = get_repos()
     project = repos.projects.get(project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
+    value = request.value.strip()
     target = Target(
         id=f"target-{uuid4().hex[:10]}",
         project_id=project_id,
         kind=request.kind,
-        value=request.value.strip(),
+        value=value,
         authorized=request.authorized,
         lab_mode_enabled=request.lab_mode_enabled,
         owned_internal=request.owned_internal,
@@ -296,6 +339,10 @@ def add_project_target(project_id: str, request: TargetCreate) -> Target:
         is_demo_data=False,
     )
     repos.targets.add(target)
+    # Grant scope so the new target is actually scannable. Without this,
+    # the scope guard rejects any subsequent scan against `value` because
+    # neither `project.targets` nor `project.scope_rules.*` knew about it.
+    repos.projects.update(_grant_scope_for_target(project, request.kind, value))
     return target
 
 

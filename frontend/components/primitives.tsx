@@ -11,6 +11,9 @@ import Link from "next/link";
  *  - MetricCard          Stat tile for dashboards
  *  - EmptyState          Centred empty-state with optional CTA
  *  - Pill                Small rounded label (used by the topbar workspace pill, etc.)
+ *  - Skeleton            Animated placeholder shown while async data loads
+ *  - StatusBanner        Inline status / error message with the right
+ *                        ARIA live-region semantics baked in
  */
 
 export type StatusKind = "ok" | "warn" | "danger" | "info" | "muted";
@@ -131,4 +134,87 @@ export function EmptyState({
 export function Pill({ children, tone }: { children: ReactNode; tone?: "info" | "ok" | "warn" | "danger" | "muted" }) {
   const toneClass = tone ? ` ${tone}` : "";
   return <span className={`workspacePill${toneClass}`}>{children}</span>;
+}
+
+/**
+ * Animated loading placeholder. Renders as a tokenized rounded block
+ * with a shimmer pulse (CSS class `skeleton` defined in globals.css).
+ * Honors `prefers-reduced-motion` — the shimmer stops, the placeholder
+ * remains so layout doesn't jump.
+ *
+ * Use anywhere a fetch hasn't resolved yet — MetricCard values, table
+ * rows, chart panels — instead of an empty space or "Loading…" text.
+ * The visual placeholder reserves layout, prevents content-jump, and
+ * reads as "still working" without text noise.
+ */
+export function Skeleton({
+  width = "100%",
+  height = 16,
+  radius = "var(--radius-sm)",
+  className,
+  style,
+}: {
+  width?: string | number;
+  height?: string | number;
+  radius?: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`skeleton${className ? ` ${className}` : ""}`}
+      style={{
+        display: "block",
+        width: typeof width === "number" ? `${width}px` : width,
+        height: typeof height === "number" ? `${height}px` : height,
+        borderRadius: radius,
+        ...style,
+      }}
+    />
+  );
+}
+
+/**
+ * Inline status / error banner. Drop-in replacement for the
+ * `<div className="banner …">{message}</div>` pattern used across
+ * forms — the difference is this one carries the correct ARIA
+ * live-region attributes so screen readers announce the message when
+ * it appears, instead of users having to find it visually.
+ *
+ *   tone="error"   → role="alert"  + aria-live="assertive"
+ *   tone="info"    → role="status" + aria-live="polite"
+ *   tone="success" → role="status" + aria-live="polite"
+ *   tone="demo"    → role="note"   (static label, no live region)
+ *
+ * Visual output unchanged — the `banner` + tone classnames are the
+ * existing ones in globals.css.
+ */
+export function StatusBanner({
+  tone,
+  children,
+  style,
+}: {
+  tone: "error" | "info" | "success" | "demo";
+  children: ReactNode;
+  style?: React.CSSProperties;
+}) {
+  if (tone === "demo") {
+    return (
+      <div className="banner demo" role="note" style={style}>
+        {children}
+      </div>
+    );
+  }
+  const isError = tone === "error";
+  return (
+    <div
+      className={`banner ${isError ? "danger" : "info"}`}
+      role={isError ? "alert" : "status"}
+      aria-live={isError ? "assertive" : "polite"}
+      style={style}
+    >
+      {children}
+    </div>
+  );
 }
